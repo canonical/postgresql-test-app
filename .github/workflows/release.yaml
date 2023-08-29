@@ -31,7 +31,7 @@ jobs:
       - build
     uses: canonical/data-platform-workflows/.github/workflows/release_charm.yaml@v2
     with:
-      channel: 14/edge
+      channel: edge
       artifact-name: ${{ needs.build.outputs.artifact-name }}
     secrets:
       charmhub-token: ${{ secrets.CHARMHUB_TOKEN }}
