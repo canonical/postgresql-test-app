@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 [tool.poetry]
-name = "postgresql-k8s"
+name = "postgresql-test-app"
 version = "0.0.1-dev.0"
 description = ""
 authors = []
