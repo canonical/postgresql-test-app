@@ -244,14 +244,14 @@ class ApplicationCharm(CharmBase):
         if None in [username, password, endpoints]:
             return None
 
-        host = endpoints.split(":")[0]
+        host, port = endpoints.split(":")
 
         if not host or host == "None":
             return None
 
         return (
             f"dbname='{self.first_database_name}' user='{username}'"
-            f" host='{host}' password='{password}' connect_timeout=5"
+            f" host='{host}' password='{password}' port={port} connect_timeout=5"
         )
 
     def _count_writes(self) -> int:
