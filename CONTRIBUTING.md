@@ -2,6 +2,8 @@
 
 ## Overview
 
+To make contributions to this charm, you'll need a working [development setup](https://juju.is/docs/sdk/dev-setup).
+
 This documents explains the processes and practices recommended for contributing enhancements to
 this operator.
 
@@ -21,7 +23,7 @@ this operator.
 
 ## Developing
 
-You can create an environment for development with `tox`:
+You can use the environments created by `tox` for development:
 
 ```shell
 tox devenv -e integration
@@ -30,10 +32,12 @@ source venv/bin/activate
 
 ### Testing
 
+This project uses `tox` for managing test environments. There are some pre-configured environments
+that can be used for linting and formatting code when you're preparing contributions to the charm:
+
 ```shell
 tox run -e format        # update your code according to linting rules
 tox run -e lint          # code style
-tox                      # runs 'lint' and 'unit' environments
 ```
 
 ## Build charm
@@ -59,6 +63,6 @@ juju deploy ./postgresql-test-app_ubuntu-22.04-amd64.charm
 
 ## Canonical Contributor Agreement
 
-Canonical welcomes contributions to the PostgreSQL Operator. Please check out our
+Canonical welcomes contributions to the PostgreSQL Test App. Please check out our
 [contributor agreement](https://ubuntu.com/legal/contributors)if you're
 interested in contributing to the solution.
