@@ -13,7 +13,7 @@ repository = "https://github.com/canonical/postgresql-test-app"
 
 [tool.poetry.dependencies]
 python = "^3.10.6"
-ops = "2.5.1"
+ops = "2.6.0"
 tenacity = "8.2.3"
 # psycopg2 = "^2.9.5" # Injected in charmcraft.yaml
 
@@ -22,7 +22,7 @@ optional = true
 
 [tool.poetry.group.format.dependencies]
 black = "23.7.0"
-ruff = "0.0.286"
+ruff = "0.0.287"
 
 [tool.poetry.group.lint]
 optional = true
