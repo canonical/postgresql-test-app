@@ -101,13 +101,13 @@ files = [
 
 [[package]]
 name = "ops"
-version = "2.6.0"
+version = "2.7.0"
 description = "The Python library behind great charms"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "ops-2.6.0-py3-none-any.whl", hash = "sha256:b8ce352df4d17de483173dd2f8caf397e89585212d73b4d466b541b1ad3b8966"},
-    {file = "ops-2.6.0.tar.gz", hash = "sha256:387d5f5bd004b865f575ea4e25ca298bdca05b2b2beb2c51f203d5856c460cf6"},
+    {file = "ops-2.7.0-py3-none-any.whl", hash = "sha256:8d3983d02838e3fafc51984e4cbe35ade108b77c22cf01c70a36604ccd98608b"},
+    {file = "ops-2.7.0.tar.gz", hash = "sha256:0c0846795fcec31616549cd4c307b94580122428beafb47d70f59914f4b80d9c"},
 ]
 
 [package.dependencies]
@@ -291,4 +291,4 @@ test = ["websockets"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10.6"
-content-hash = "0ef3fbc74363724aa5811249a147c85a4d8156b79543a92b5467ebd8d3caaca0"
+content-hash = "fd2b77baef89ce6c662b3d041ee8f3d0695e2705af69d5f2b007b2699e923fd8"
