@@ -6,7 +6,7 @@ import asyncio
 import logging
 import time
 
-import psycopg2
+from juju.relation import Relation
 from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,14 @@ logger = logging.getLogger(__name__)
 TEST_APP_NAME = "postgresql-test-app"
 
 
-async def test_smoke(ops_test: OpsTest):
+async def integrate(ops_test: OpsTest, relation1: str, relation2: str) -> Relation:
+    if hasattr(ops_test.model, "integrate"):
+        return await ops_test.model.integrate(relation1, relation2)
+    else:
+        return await ops_test.model.relate(relation1, relation2)
+
+
+async def test_smoke(ops_test: OpsTest) -> None:
     """Verify that the charm works with latest Postgresql and Pgbouncer."""
     logger.info("Deploy charms")
     if ops_test.cloud_name == "localhost":
@@ -47,11 +54,10 @@ async def test_smoke(ops_test: OpsTest):
             series="jammy",
         ),
     )
-    await ops_test.model.integrate(postgresql, pgbouncer)
-    await ops_test.model.integrate(f"{TEST_APP_NAME}:first-database", pgbouncer)
+    await integrate(ops_test, postgresql, pgbouncer)
+    client_relation = await integrate(ops_test, f"{TEST_APP_NAME}:first-database", pgbouncer)
     await ops_test.model.wait_for_idle(
-        apps=[postgresql, pgbouncer, TEST_APP_NAME],
-        status="active",
+        apps=[postgresql, pgbouncer, TEST_APP_NAME], status="active", timeout=1000
     )
 
     logger.info("Test continuous writes")
@@ -72,24 +78,18 @@ async def test_smoke(ops_test: OpsTest):
     writes = int(results.results["writes"])
     assert writes > 0
 
-    result = await (
-        await ops_test.model.applications[postgresql].units[0].run_action("get-password")
+    params = {
+        "dbname": f"{TEST_APP_NAME.replace('-', '_')}_first_database",
+        "query": "SELECT COUNT(number), MAX(number) FROM continuous_writes;",
+        "relation-id": client_relation.id,
+        "relation-name": "first-database",
+        "readonly": False,
+    }
+    results = await (
+        await ops_test.model.applications[TEST_APP_NAME].units[0].run_action("run-sql", **params)
     ).wait()
-    password = result.results["password"]
+    count, maximum = results.results["results"].strip("[]").split(", ")
+    count = int(count)
+    maximum = int(maximum)
 
-    ip = await ops_test.model.applications[postgresql].units[0].get_public_address()
-
-    connection_string = (
-        f"dbname='{TEST_APP_NAME.replace('-', '_')}_first_database' user='operator'"
-        f" host='{ip}' password='{password}' connect_timeout=10"
-    )
-
-    with psycopg2.connect(connection_string) as connection, connection.cursor() as cursor:
-        cursor.execute("SELECT COUNT(number), MAX(number) FROM continuous_writes;")
-        results = cursor.fetchone()
-        count = results[0]
-        maximum = results[1]
-    connection.close()
-
-    assert writes == count
-    assert writes == maximum
+    assert writes == count == maximum
