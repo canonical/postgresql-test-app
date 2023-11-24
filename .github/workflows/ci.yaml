@@ -24,7 +24,7 @@ jobs:
 
   build:
     name: Build charm
-    uses: canonical/data-platform-workflows/.github/workflows/build_charms_with_cache.yaml@v6.2.0
+    uses: canonical/data-platform-workflows/.github/workflows/build_charms_with_cache.yaml@add-poetry-plugin-export 
     permissions:
       actions: write  # Needed to manage GitHub Actions cache
 
