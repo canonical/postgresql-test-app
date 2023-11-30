@@ -391,7 +391,10 @@ class ApplicationCharm(CharmBase):
         """
         if self.model.unit.is_leader():
             event.database = "db_with_extensions"
-            event.extensions = ["pg_trgm:public", "unaccent:public"]
+            if self.config["legacy_roles"]:
+                event.roles = "admin"
+            else:
+                event.extensions = ["pg_trgm:public", "unaccent:public"]
 
     # Run_sql action handler
     def _on_run_sql_action(self, event: ActionEvent):
