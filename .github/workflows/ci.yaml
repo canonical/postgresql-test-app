@@ -20,11 +20,11 @@ on:
 jobs:
   lint:
     name: Lint
-    uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v6.3.0
+    uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v6.3.3
 
   build:
     name: Build charm
-    uses: canonical/data-platform-workflows/.github/workflows/build_charms_with_cache.yaml@v6.3.0
+    uses: canonical/data-platform-workflows/.github/workflows/build_charms_with_cache.yaml@v6.3.3
     permissions:
       actions: write  # Needed to manage GitHub Actions cache
 
