@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 
+import pytest
 from juju.relation import Relation
 from pytest_operator.plugin import OpsTest
 
@@ -21,6 +22,7 @@ async def integrate(ops_test: OpsTest, relation1: str, relation2: str) -> Relati
         return await ops_test.model.relate(relation1, relation2)
 
 
+@pytest.mark.group(1)
 async def test_smoke(ops_test: OpsTest) -> None:
     """Verify that the charm works with latest Postgresql and Pgbouncer."""
     logger.info("Deploy charms")
