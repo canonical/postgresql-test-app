@@ -49,3 +49,4 @@ jobs:
       cloud: ${{ matrix.cloud }}
       juju-agent-version: ${{ matrix.juju.agent }}
       libjuju-version-constraint: ${{ matrix.juju.libjuju }}
+      microk8s-snap-channel: 1.29-strict/stable
