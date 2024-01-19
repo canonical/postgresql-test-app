@@ -39,7 +39,7 @@ jobs:
         cloud:
           - lxd
           - microk8s
-    name: Integration test charm | ${{ matrix.juju.agent }}
+    name: Integration test charm | ${{ matrix.juju.agent }} | ${{ matrix.cloud }}
     needs:
       - lint
       - build
