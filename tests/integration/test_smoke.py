@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 
+import pytest
 from juju.relation import Relation
 from pytest_operator.plugin import OpsTest
 
@@ -21,17 +22,20 @@ async def integrate(ops_test: OpsTest, relation1: str, relation2: str) -> Relati
         return await ops_test.model.relate(relation1, relation2)
 
 
+@pytest.mark.group(1)
 async def test_smoke(ops_test: OpsTest) -> None:
     """Verify that the charm works with latest Postgresql and Pgbouncer."""
     logger.info("Deploy charms")
-    if ops_test.cloud_name == "localhost":
-        postgresql = "postgresql"
-        pgbouncer = "pgbouncer"
-        pgb_units = 0
-    else:
+    is_k8s = ops_test.model.info.provider_type == "kubernetes"
+
+    if is_k8s:
         postgresql = "postgresql-k8s"
         pgbouncer = "pgbouncer-k8s"
         pgb_units = 1
+    else:
+        postgresql = "postgresql"
+        pgbouncer = "pgbouncer"
+        pgb_units = 0
     await asyncio.gather(
         ops_test.model.deploy(
             postgresql,
