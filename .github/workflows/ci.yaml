@@ -20,11 +20,11 @@ on:
 jobs:
   lint:
     name: Lint
-    uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v9.3.2
+    uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v11.0.0
 
   build:
     name: Build charm
-    uses: canonical/data-platform-workflows/.github/workflows/build_charms_with_cache.yaml@v9.3.2
+    uses: canonical/data-platform-workflows/.github/workflows/build_charms_with_cache.yaml@v11.0.0
     with:
       charmcraft-snap-channel: beta
 
@@ -43,7 +43,7 @@ jobs:
     needs:
       - lint
       - build
-    uses: canonical/data-platform-workflows/.github/workflows/integration_test_charm.yaml@v9.3.2
+    uses: canonical/data-platform-workflows/.github/workflows/integration_test_charm.yaml@v11.0.0
     with:
       artifact-name: ${{ needs.build.outputs.artifact-name }}
       cloud: ${{ matrix.cloud }}
