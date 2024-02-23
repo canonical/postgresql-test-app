@@ -1,5 +1,7 @@
 # PostgreSQL Test Application
-<a href="https://charmhub.io/postgresql-test-app"><img alt="Click for the charm!" src="https://charmhub.io/postgresql-test-app/badge.svg" /></a>
+[![Charmhub](https://charmhub.io/postgresql-test-app/badge.svg)](https://charmhub.io/postgresql-test-app)
+[![Release](https://github.com/canonical/postgresql-test-app/actions/workflows/release.yaml/badge.svg)](https://github.com/canonical/postgresql-test-app/actions/workflows/release.yaml)
+[![Tests](https://github.com/canonical/postgresql-test-app/actions/workflows/ci.yaml/badge.svg)](https://github.com/canonical/postgresql-test-app/actions/workflows/ci.yaml)
 
 PostgreSQL test charm - is a simple application used exclusively for
 various tests of "Charmed PostgreSQL" charms (see the "References" section).
