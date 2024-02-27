@@ -1088,13 +1088,13 @@ pytz = "*"
 
 [[package]]
 name = "pytest"
-version = "8.0.1"
+version = "8.0.2"
 description = "pytest: simple powerful testing with Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pytest-8.0.1-py3-none-any.whl", hash = "sha256:3e4f16fe1c0a9dc9d9389161c127c3edc5d810c38d6793042fb81d9f48a59fca"},
-    {file = "pytest-8.0.1.tar.gz", hash = "sha256:267f6563751877d772019b13aacbe4e860d73fe8f651f28112e9ac37de7513ae"},
+    {file = "pytest-8.0.2-py3-none-any.whl", hash = "sha256:edfaaef32ce5172d5466b5127b42e0d6d35ebbe4453f0e3505d96afd93f6b096"},
+    {file = "pytest-8.0.2.tar.gz", hash = "sha256:d4051d623a2e0b7e51960ba963193b09ce6daeb9759a451844a21e4ddedfc1bd"},
 ]
 
 [package.dependencies]
@@ -1144,13 +1144,13 @@ subdirectory = "python/pytest_plugins/github_secrets"
 
 [[package]]
 name = "pytest-operator"
-version = "0.32.0"
+version = "0.33.0"
 description = "Fixtures for Operators"
 optional = false
 python-versions = "*"
 files = [
-    {file = "pytest-operator-0.32.0.tar.gz", hash = "sha256:9e7b3b1384118110654f86bb6aaf772d29c6f38aec05492707ad09beff7b645b"},
-    {file = "pytest_operator-0.32.0-py3-none-any.whl", hash = "sha256:a03efd6e3aea5f5c7395ef64c45d6d1719fde61f8593804dc5c8ffff561ecfd4"},
+    {file = "pytest-operator-0.33.0.tar.gz", hash = "sha256:97d5c1890c3a012edde7c5bb1e8659aa9c9b9a0c4b4293af1a319885100d0696"},
+    {file = "pytest_operator-0.33.0-py3-none-any.whl", hash = "sha256:b1f7bc19155a204b86c1957d56fba5e667a1782b63689ef6c9e411e83af1c018"},
 ]
 
 [package.dependencies]
@@ -1598,4 +1598,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "3f9c947541cbb6166e49bf68fcebf6395a64c536c658f089a46dd3021ea2c477"
+content-hash = "d84506beec25c1cb7848cc2cd6a718d5debbedcc20a5f181b37c030c783136ed"
