@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 
 """This file is meant to run in the background continuously writing entries to PostgreSQL."""
+
 import multiprocessing
 import os
 import signal
