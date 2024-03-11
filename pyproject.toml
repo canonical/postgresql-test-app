@@ -27,7 +27,7 @@ optional = true
 
 [tool.poetry.group.format.dependencies]
 black = "^24.2.0"
-ruff = "^0.3.1"
+ruff = "^0.3.2"
 
 [tool.poetry.group.lint]
 optional = true
@@ -40,7 +40,7 @@ codespell = "2.2.6"
 optional = true
 
 [tool.poetry.group.integration.dependencies]
-pytest = "^8.0.2"
+pytest = "^8.1.1"
 pytest-github-secrets = {git = "https://github.com/canonical/data-platform-workflows", tag = "v12.7.1", subdirectory = "python/pytest_plugins/github_secrets"}
 pytest-operator = "^0.34.0"
 pytest-operator-cache = {git = "https://github.com/canonical/data-platform-workflows", tag = "v12.7.1", subdirectory = "python/pytest_plugins/pytest_operator_cache"}
