@@ -341,13 +341,11 @@ class ApplicationCharm(CharmBase):
             os.fsync(fd)
 
         # Run continuous writes in the background.
-        popen = subprocess.Popen(
-            [
-                "/usr/bin/python3",
-                "src/continuous_writes.py",
-                str(starting_number),
-            ]
-        )
+        popen = subprocess.Popen([
+            "/usr/bin/python3",
+            "src/continuous_writes.py",
+            str(starting_number),
+        ])
 
         # Store the continuous writes process ID to stop the process later.
         self.app_peer_data[PROC_PID_KEY] = str(popen.pid)
@@ -382,7 +380,8 @@ class ApplicationCharm(CharmBase):
 
     # Legacy event handlers
     def _on_database_relation_joined(
-        self, event: pgsql.DatabaseRelationJoinedEvent  # type: ignore
+        self,
+        event: pgsql.DatabaseRelationJoinedEvent,  # type: ignore
     ) -> None:
         """Handle db-relation-joined.
 
