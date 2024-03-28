@@ -516,12 +516,12 @@ i18n = ["Babel (>=2.7)"]
 
 [[package]]
 name = "juju"
-version = "3.3.1.1"
+version = "3.4.0.0"
 description = "Python library for Juju"
 optional = false
 python-versions = "*"
 files = [
-    {file = "juju-3.3.1.1.tar.gz", hash = "sha256:b30b19051a1c394fa1b1a8c6d38c31d8acdceec2f95b33ffb46fab2d791a29fd"},
+    {file = "juju-3.4.0.0.tar.gz", hash = "sha256:5b883446ca0977c1255b0876ed5d2eab01cffaf03a8c77cfd768975264abef3d"},
 ]
 
 [package.dependencies]
@@ -694,13 +694,13 @@ signedtoken = ["cryptography (>=3.0.0)", "pyjwt (>=2.0.0,<3)"]
 
 [[package]]
 name = "ops"
-version = "2.11.0"
+version = "2.12.0"
 description = "The Python library behind great charms"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "ops-2.11.0-py3-none-any.whl", hash = "sha256:341c4103f1078b0b82705481739f279c1664adf641731f597b5b82b37a453f80"},
-    {file = "ops-2.11.0.tar.gz", hash = "sha256:1d98cd51f8db269f4e011a0ba3e85a59bc0a622c20677bc1d08b4496035e36b9"},
+    {file = "ops-2.12.0-py3-none-any.whl", hash = "sha256:b6f7db8aa2886351d0a2527f0df6c8a34e0d9cf90ddfbb91e734f73259df8ddf"},
+    {file = "ops-2.12.0.tar.gz", hash = "sha256:7d88522914728caa13aaf1689637f8b573eaf5d38b7f2b8cf135406ee6ef0fc3"},
 ]
 
 [package.dependencies]
@@ -708,7 +708,7 @@ PyYAML = "==6.*"
 websocket-client = "==1.*"
 
 [package.extras]
-docs = ["furo", "lxd-sphinx-extensions", "sphinx (==6.2.1)", "sphinx-copybutton", "sphinx-design", "sphinx-tabs"]
+docs = ["canonical-sphinx-extensions", "furo", "linkify-it-py", "myst-parser", "pyspelling", "sphinx (==6.2.1)", "sphinx-autobuild", "sphinx-copybutton", "sphinx-design", "sphinx-notfound-page", "sphinx-tabs", "sphinxcontrib-jquery", "sphinxext-opengraph"]
 
 [[package]]
 name = "ops-lib-pgsql"
@@ -1512,4 +1512,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "a8348da887cf9cb9df46023f9907543e8657dc70230b0356a302a4cf82e03c19"
+content-hash = "8da1171c5184de93f1638795791a253ac20f08fd6b904ae8815604f8012801dd"
