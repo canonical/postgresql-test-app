@@ -291,8 +291,10 @@ class ApplicationCharm(CharmBase):
     @property
     def _connection_string(self) -> Optional[str]:
         """Returns the PostgreSQL connection string."""
-        data = list(self.database.fetch_relation_data().values())[0]
-        if "database" not in data:
+        db_data = list(self.database.fetch_relation_data().values())
+        if db_data:
+            data = db_data[0]
+        else:
             data = list(self.first_database.fetch_relation_data().values())[0]
         username = data.get("username")
         password = data.get("password")
