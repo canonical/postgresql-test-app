@@ -32,7 +32,6 @@ run-sql:
   required:
   - dbname
   - query
-  - relation-id
   - relation-name
 
 test-tls:

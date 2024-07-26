@@ -59,7 +59,7 @@ async def test_smoke(ops_test: OpsTest) -> None:
         ),
     )
     await integrate(ops_test, postgresql, pgbouncer)
-    client_relation = await integrate(ops_test, f"{TEST_APP_NAME}:database", pgbouncer)
+    await integrate(ops_test, f"{TEST_APP_NAME}:database", pgbouncer)
     await ops_test.model.wait_for_idle(
         apps=[postgresql, pgbouncer, TEST_APP_NAME], status="active", timeout=1000
     )
@@ -96,7 +96,6 @@ async def test_smoke(ops_test: OpsTest) -> None:
     params = {
         "dbname": f"{TEST_APP_NAME.replace('-', '_')}_database",
         "query": "SELECT COUNT(number), MAX(number) FROM continuous_writes;",
-        "relation-id": client_relation.id,
         "relation-name": "database",
         "readonly": False,
     }
