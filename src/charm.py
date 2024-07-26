@@ -75,6 +75,16 @@ class ApplicationCharm(CharmBase):
             self.first_database.on.endpoints_changed, self._on_first_database_endpoints_changed
         )
         self.framework.observe(self.on["first-database"].relation_broken, self._on_relation_broken)
+
+        self.first_database_name = f'{self.app.name.replace("-", "_")}_database'
+        self.database = DatabaseRequires(
+            self, "database", self.first_database_name, EXTRA_USER_ROLES
+        )
+        self.framework.observe(self.database.on.database_created, self._on_database_created)
+        self.framework.observe(
+            self.database.on.endpoints_changed, self._on_database_endpoints_changed
+        )
+        self.framework.observe(self.on["database"].relation_broken, self._on_relation_broken)
         self.framework.observe(
             self.on.clear_continuous_writes_action, self._on_clear_continuous_writes_action
         )
@@ -176,10 +186,6 @@ class ApplicationCharm(CharmBase):
         logger.info(f"first database credentials: {event.username} {event.password}")
         self.unit.status = ActiveStatus("received database credentials of the first database")
 
-    def _on_relation_broken(self, _) -> None:
-        """Event triggered when a database relation is left."""
-        self.unit.status = ActiveStatus("")
-
     def _on_first_database_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
         """Event triggered when the read/write endpoints of the database change."""
         logger.info(f"first database endpoints have been changed to: {event.endpoints}")
@@ -200,6 +206,37 @@ class ApplicationCharm(CharmBase):
             return
         count = self._count_writes()
         self._start_continuous_writes(count + 1)
+
+    def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
+        """Event triggered when a database was created for this application."""
+        # Retrieve the credentials using the charm library.
+        logger.info(f"database credentials: {event.username} {event.password}")
+        self.unit.status = ActiveStatus("received database credentials of the first database")
+
+    def _on_database_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
+        """Event triggered when the read/write endpoints of the database change."""
+        logger.info(f"first database endpoints have been changed to: {event.endpoints}")
+        if self._connection_string is None:
+            return
+
+        if not self.app_peer_data.get(PROC_PID_KEY):
+            return None
+
+        with open(CONFIG_FILE, "w") as fd:
+            fd.write(self._connection_string)
+            os.fsync(fd)
+
+        try:
+            os.kill(int(self.app_peer_data[PROC_PID_KEY]), signal.SIGKILL)
+        except ProcessLookupError:
+            del self.app_peer_data[PROC_PID_KEY]
+            return
+        count = self._count_writes()
+        self._start_continuous_writes(count + 1)
+
+    def _on_relation_broken(self, _) -> None:
+        """Event triggered when a database relation is left."""
+        self.unit.status = ActiveStatus("")
 
     # Second database events observers.
     def _on_second_database_created(self, event: DatabaseCreatedEvent) -> None:
@@ -254,10 +291,14 @@ class ApplicationCharm(CharmBase):
     @property
     def _connection_string(self) -> Optional[str]:
         """Returns the PostgreSQL connection string."""
-        data = list(self.first_database.fetch_relation_data().values())[0]
+        if self.database.relation:
+            data = list(self.database.fetch_relation_data().values())[0]
+        else:
+            data = list(self.first_database.fetch_relation_data().values())[0]
         username = data.get("username")
         password = data.get("password")
         endpoints = data.get("endpoints")
+        database = data.get("database")
         if None in [username, password, endpoints]:
             return None
 
@@ -267,7 +308,7 @@ class ApplicationCharm(CharmBase):
             return None
 
         return (
-            f"dbname='{self.first_database_name}' user='{username}'"
+            f"dbname='{database}' user='{username}'"
             f" host='{host}' password='{password}' port={port} connect_timeout=5"
         )
 

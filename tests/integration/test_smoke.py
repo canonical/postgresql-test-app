@@ -59,7 +59,7 @@ async def test_smoke(ops_test: OpsTest) -> None:
         ),
     )
     await integrate(ops_test, postgresql, pgbouncer)
-    client_relation = await integrate(ops_test, f"{TEST_APP_NAME}:first-database", pgbouncer)
+    client_relation = await integrate(ops_test, f"{TEST_APP_NAME}:database", pgbouncer)
     await ops_test.model.wait_for_idle(
         apps=[postgresql, pgbouncer, TEST_APP_NAME], status="active", timeout=1000
     )
@@ -73,6 +73,16 @@ async def test_smoke(ops_test: OpsTest) -> None:
 
     time.sleep(10)
 
+    logger.info("Show continuous writes")
+    results = await (
+        await ops_test.model.applications[TEST_APP_NAME]
+        .units[0]
+        .run_action("start-continuous-writes")
+    ).wait()
+    show_writes = int(results.results["writes"])
+
+    time.sleep(10)
+
     results = await (
         await ops_test.model.applications[TEST_APP_NAME]
         .units[0]
@@ -81,12 +91,13 @@ async def test_smoke(ops_test: OpsTest) -> None:
 
     writes = int(results.results["writes"])
     assert writes > 0
+    assert writes > show_writes
 
     params = {
-        "dbname": f"{TEST_APP_NAME.replace('-', '_')}_first_database",
+        "dbname": f"{TEST_APP_NAME.replace('-', '_')}_database",
         "query": "SELECT COUNT(number), MAX(number) FROM continuous_writes;",
         "relation-id": client_relation.id,
-        "relation-name": "first-database",
+        "relation-name": "database",
         "readonly": False,
     }
     results = await (

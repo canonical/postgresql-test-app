@@ -19,6 +19,8 @@ maintainers:
 
 
 requires:
+  database:
+    interface: postgresql_client
   first-database:
     interface: postgresql_client
   second-database:
