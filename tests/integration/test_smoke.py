@@ -77,7 +77,7 @@ async def test_smoke(ops_test: OpsTest) -> None:
     results = await (
         await ops_test.model.applications[TEST_APP_NAME]
         .units[0]
-        .run_action("start-continuous-writes")
+        .run_action("show-continuous-writes")
     ).wait()
     show_writes = int(results.results["writes"])
 
