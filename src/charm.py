@@ -487,7 +487,7 @@ class ApplicationCharm(CharmBase):
         else:
             event.fail(message="invalid relation name")
 
-        databag = relation.fetch_relation_data()[0]
+        databag = list(relation.fetch_relation_data().values())[0]
 
         dbname = event.params["dbname"]
         query = event.params["query"]
