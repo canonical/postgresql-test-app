@@ -74,6 +74,7 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(
             self.first_database.on.endpoints_changed, self._on_first_database_endpoints_changed
         )
+        self.framework.observe(self.on["first-database"].relation_broken, self._on_relation_broken)
         self.framework.observe(
             self.on.clear_continuous_writes_action, self._on_clear_continuous_writes_action
         )
@@ -99,6 +100,9 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(
             self.second_database.on.endpoints_changed, self._on_second_database_endpoints_changed
         )
+        self.framework.observe(
+            self.on["second-database"].relation_broken, self._on_relation_broken
+        )
 
         # Multiple database clusters charm events (clusters/relations without alias).
         database_name = f'{self.app.name.replace("-", "_")}_multiple_database_clusters'
@@ -111,6 +115,9 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(
             self.database_clusters.on.endpoints_changed,
             self._on_cluster_endpoints_changed,
+        )
+        self.framework.observe(
+            self.on["multiple-database-clusters"].relation_broken, self._on_relation_broken
         )
 
         # Multiple database clusters charm events (defined dynamically
@@ -142,6 +149,9 @@ class ApplicationCharm(CharmBase):
             self.aliased_database_clusters.on.cluster2_endpoints_changed,
             self._on_cluster2_endpoints_changed,
         )
+        self.framework.observe(
+            self.on["aliased-multiple-database-clusters"].relation_broken, self._on_relation_broken
+        )
 
         # Relation used to test the situation where no database name is provided.
         self.no_database = DatabaseRequires(self, "no-database", database_name="")
@@ -165,6 +175,10 @@ class ApplicationCharm(CharmBase):
         # Retrieve the credentials using the charm library.
         logger.info(f"first database credentials: {event.username} {event.password}")
         self.unit.status = ActiveStatus("received database credentials of the first database")
+
+    def _on_relation_broken(self, _) -> None:
+        """Event triggered when a database relation is left."""
+        self.unit.status = ActiveStatus("")
 
     def _on_first_database_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
         """Event triggered when the read/write endpoints of the database change."""
