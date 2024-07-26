@@ -83,6 +83,9 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(
             self.on.stop_continuous_writes_action, self._on_stop_continuous_writes_action
         )
+        self.framework.observe(
+            self.on.show_continuous_writes_action, self._on_show_continuous_writes_action
+        )
 
         # Events related to the second database that is requested
         # (these events are defined in the database requires charm library).
@@ -323,6 +326,23 @@ class ApplicationCharm(CharmBase):
         self._start_continuous_writes(1)
         event.set_results({"result": "True"})
 
+    def _on_show_continuous_writes_action(self, event: ActionEvent) -> None:
+        """Count the continuous writes."""
+        try:
+            # Create the table to write records on and also a unique index to prevent duplicate
+            # writes.
+            with psycopg2.connect(
+                self._connection_string
+            ) as connection, connection.cursor() as cursor:
+                connection.autocommit = True
+                cursor.execute("SELECT COUNT(*) FROM continuous_writes;")
+                event.set_results({"writes": cursor.fetchone()[0]})
+        except Exception:
+            event.set_results({"writes": -1})
+            logger.exception("Unable to count writes")
+        finally:
+            connection.close()
+
     def _on_stop_continuous_writes_action(self, event: ActionEvent) -> None:
         """Stops the continuous writes process."""
         writes = self._stop_continuous_writes()
@@ -345,6 +365,7 @@ class ApplicationCharm(CharmBase):
             "/usr/bin/python3",
             "src/continuous_writes.py",
             str(starting_number),
+            str(self.config["sleep_interval"]),
         ])
 
         # Store the continuous writes process ID to stop the process later.

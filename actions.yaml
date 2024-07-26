@@ -7,6 +7,8 @@ start-continuous-writes:
   description: Start continuous writes.
 stop-continuous-writes:
   description: Stop continuous writes.
+show-continuous-writes:
+  description: Show continuous writes.
 
 run-sql:
   description: Runs a given sql command on the backend database.
