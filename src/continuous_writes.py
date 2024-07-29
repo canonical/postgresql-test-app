@@ -26,7 +26,7 @@ def _read_config_file():
         connection_string = fd.read().strip()
 
 
-def continuous_writes(starting_number: int, sleep_interval: int = 0):
+def continuous_writes(starting_number: int, sleep_interval: float = 0.0):
     """Continuously writes data do PostgreSQL database.
 
     Args:
@@ -83,9 +83,9 @@ def main():
     """Main executor."""
     starting_number = int(sys.argv[1])
     if len(sys.argv) > 2:
-        sleep_interval = int(sys.argv[2])
+        sleep_interval = int(sys.argv[2]) / 1000
     else:
-        sleep_interval = 0
+        sleep_interval = 0.0
     continuous_writes(starting_number, sleep_interval)
 
 
