@@ -40,9 +40,6 @@ test-tls:
     dbname:
       description: database on which to run the command
       type: string
-    relation-id:
-      description: id of the relation under test
-      type: integer
     relation-name:
       description: name of the relation under test
       type: string
