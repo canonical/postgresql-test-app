@@ -11,5 +11,5 @@ options:
   sleep_interval:
     default: 0
     description: |
-      How long to sleep between writes
+      How many seconds to sleep between writes
     type: int

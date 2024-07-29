@@ -385,8 +385,6 @@ class ApplicationCharm(CharmBase):
     def _on_show_continuous_writes_action(self, event: ActionEvent) -> None:
         """Count the continuous writes."""
         try:
-            # Create the table to write records on and also a unique index to prevent duplicate
-            # writes.
             with psycopg2.connect(
                 self._connection_string
             ) as connection, connection.cursor() as cursor:
