@@ -52,5 +52,4 @@ test-tls:
       default: false
   required:
   - dbname
-  - relation-id
   - relation-name

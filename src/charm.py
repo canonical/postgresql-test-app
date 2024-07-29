@@ -519,16 +519,17 @@ class ApplicationCharm(CharmBase):
         """An action that allows us to run SQL queries from this charm."""
         logger.info(event.params)
 
-        relation_id = event.params["relation-id"]
         relation_name = event.params["relation-name"]
         if relation_name == self.first_database.relation_name:
             relation = self.first_database
+        if relation_name == self.database.relation_name:
+            relation = self.database
         elif relation_name == self.second_database.relation_name:
             relation = self.second_database
         else:
             event.fail(message="invalid relation name")
 
-        databag = relation.fetch_relation_data()[relation_id]
+        databag = list(relation.fetch_relation_data().values())[0]
 
         dbname = event.params["dbname"]
         user = databag.get("username")
