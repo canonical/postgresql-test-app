@@ -74,6 +74,17 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(
             self.first_database.on.endpoints_changed, self._on_first_database_endpoints_changed
         )
+        self.framework.observe(self.on["first-database"].relation_broken, self._on_relation_broken)
+
+        self.first_database_name = f'{self.app.name.replace("-", "_")}_database'
+        self.database = DatabaseRequires(
+            self, "database", self.first_database_name, EXTRA_USER_ROLES
+        )
+        self.framework.observe(self.database.on.database_created, self._on_database_created)
+        self.framework.observe(
+            self.database.on.endpoints_changed, self._on_database_endpoints_changed
+        )
+        self.framework.observe(self.on["database"].relation_broken, self._on_relation_broken)
         self.framework.observe(
             self.on.clear_continuous_writes_action, self._on_clear_continuous_writes_action
         )
@@ -82,6 +93,9 @@ class ApplicationCharm(CharmBase):
         )
         self.framework.observe(
             self.on.stop_continuous_writes_action, self._on_stop_continuous_writes_action
+        )
+        self.framework.observe(
+            self.on.show_continuous_writes_action, self._on_show_continuous_writes_action
         )
 
         # Events related to the second database that is requested
@@ -96,6 +110,9 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(
             self.second_database.on.endpoints_changed, self._on_second_database_endpoints_changed
         )
+        self.framework.observe(
+            self.on["second-database"].relation_broken, self._on_relation_broken
+        )
 
         # Multiple database clusters charm events (clusters/relations without alias).
         database_name = f'{self.app.name.replace("-", "_")}_multiple_database_clusters'
@@ -108,6 +125,9 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(
             self.database_clusters.on.endpoints_changed,
             self._on_cluster_endpoints_changed,
+        )
+        self.framework.observe(
+            self.on["multiple-database-clusters"].relation_broken, self._on_relation_broken
         )
 
         # Multiple database clusters charm events (defined dynamically
@@ -138,6 +158,9 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(
             self.aliased_database_clusters.on.cluster2_endpoints_changed,
             self._on_cluster2_endpoints_changed,
+        )
+        self.framework.observe(
+            self.on["aliased-multiple-database-clusters"].relation_broken, self._on_relation_broken
         )
 
         # Relation used to test the situation where no database name is provided.
@@ -183,6 +206,37 @@ class ApplicationCharm(CharmBase):
             return
         count = self._count_writes()
         self._start_continuous_writes(count + 1)
+
+    def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
+        """Event triggered when a database was created for this application."""
+        # Retrieve the credentials using the charm library.
+        logger.info(f"database credentials: {event.username} {event.password}")
+        self.unit.status = ActiveStatus("received database credentials of the first database")
+
+    def _on_database_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
+        """Event triggered when the read/write endpoints of the database change."""
+        logger.info(f"first database endpoints have been changed to: {event.endpoints}")
+        if self._connection_string is None:
+            return
+
+        if not self.app_peer_data.get(PROC_PID_KEY):
+            return None
+
+        with open(CONFIG_FILE, "w") as fd:
+            fd.write(self._connection_string)
+            os.fsync(fd)
+
+        try:
+            os.kill(int(self.app_peer_data[PROC_PID_KEY]), signal.SIGKILL)
+        except ProcessLookupError:
+            del self.app_peer_data[PROC_PID_KEY]
+            return
+        count = self._count_writes()
+        self._start_continuous_writes(count + 1)
+
+    def _on_relation_broken(self, _) -> None:
+        """Event triggered when a database relation is left."""
+        self.unit.status = ActiveStatus("")
 
     # Second database events observers.
     def _on_second_database_created(self, event: DatabaseCreatedEvent) -> None:
@@ -237,10 +291,15 @@ class ApplicationCharm(CharmBase):
     @property
     def _connection_string(self) -> Optional[str]:
         """Returns the PostgreSQL connection string."""
-        data = list(self.first_database.fetch_relation_data().values())[0]
+        db_data = list(self.database.fetch_relation_data().values())
+        if db_data:
+            data = db_data[0]
+        else:
+            data = list(self.first_database.fetch_relation_data().values())[0]
         username = data.get("username")
         password = data.get("password")
         endpoints = data.get("endpoints")
+        database = data.get("database")
         if None in [username, password, endpoints]:
             return None
 
@@ -250,7 +309,7 @@ class ApplicationCharm(CharmBase):
             return None
 
         return (
-            f"dbname='{self.first_database_name}' user='{username}'"
+            f"dbname='{database}' user='{username}'"
             f" host='{host}' password='{password}' port={port} connect_timeout=5"
         )
 
@@ -323,6 +382,21 @@ class ApplicationCharm(CharmBase):
         self._start_continuous_writes(1)
         event.set_results({"result": "True"})
 
+    def _on_show_continuous_writes_action(self, event: ActionEvent) -> None:
+        """Count the continuous writes."""
+        try:
+            with psycopg2.connect(
+                self._connection_string
+            ) as connection, connection.cursor() as cursor:
+                connection.autocommit = True
+                cursor.execute("SELECT COUNT(*) FROM continuous_writes;")
+                event.set_results({"writes": cursor.fetchone()[0]})
+        except Exception:
+            event.set_results({"writes": -1})
+            logger.exception("Unable to count writes")
+        finally:
+            connection.close()
+
     def _on_stop_continuous_writes_action(self, event: ActionEvent) -> None:
         """Stops the continuous writes process."""
         writes = self._stop_continuous_writes()
@@ -345,6 +419,7 @@ class ApplicationCharm(CharmBase):
             "/usr/bin/python3",
             "src/continuous_writes.py",
             str(starting_number),
+            str(self.config["sleep_interval"]),
         ])
 
         # Store the continuous writes process ID to stop the process later.
@@ -400,16 +475,17 @@ class ApplicationCharm(CharmBase):
         """An action that allows us to run SQL queries from this charm."""
         logger.info(event.params)
 
-        relation_id = event.params["relation-id"]
         relation_name = event.params["relation-name"]
         if relation_name == self.first_database.relation_name:
             relation = self.first_database
+        if relation_name == self.database.relation_name:
+            relation = self.database
         elif relation_name == self.second_database.relation_name:
             relation = self.second_database
         else:
             event.fail(message="invalid relation name")
 
-        databag = relation.fetch_relation_data()[relation_id]
+        databag = list(relation.fetch_relation_data().values())[0]
 
         dbname = event.params["dbname"]
         query = event.params["query"]

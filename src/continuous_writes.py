@@ -26,12 +26,13 @@ def _read_config_file():
         connection_string = fd.read().strip()
 
 
-def continuous_writes(starting_number: int):
+def continuous_writes(starting_number: int, sleep_interval: float = 0.0):
     """Continuously writes data do PostgreSQL database.
 
     Args:
         starting_number: starting number that is used to write to the database and
             is continuously incremented after each write to the database.
+        sleep_interval: how long to sleep between writes.
     """
     write_value = starting_number
 
@@ -47,6 +48,7 @@ def continuous_writes(starting_number: int):
             process.terminate()
         else:
             write_value = write_value + 1
+        sleep(sleep_interval)
 
     with open("/tmp/last_written_value", "w") as fd:
         fd.write(str(write_value - 1))
@@ -80,7 +82,11 @@ def write(write_value: int) -> None:
 def main():
     """Main executor."""
     starting_number = int(sys.argv[1])
-    continuous_writes(starting_number)
+    if len(sys.argv) > 2:
+        sleep_interval = int(sys.argv[2]) / 1000
+    else:
+        sleep_interval = 0.0
+    continuous_writes(starting_number, sleep_interval)
 
 
 if __name__ == "__main__":

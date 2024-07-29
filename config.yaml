@@ -8,3 +8,8 @@ options:
     description: |
       Request roles instead of extensions
     type: boolean
+  sleep_interval:
+    default: 0
+    description: |
+      How many milliseconds to sleep between writes
+    type: int
