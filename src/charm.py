@@ -64,18 +64,6 @@ class ApplicationCharm(CharmBase):
 
         # Events related to the first database that is requested
         # (these events are defined in the database requires charm library).
-        self.first_database_name = f'{self.app.name.replace("-", "_")}_first_database'
-        self.first_database = DatabaseRequires(
-            self, "first-database", self.first_database_name, EXTRA_USER_ROLES
-        )
-        self.framework.observe(
-            self.first_database.on.database_created, self._on_first_database_created
-        )
-        self.framework.observe(
-            self.first_database.on.endpoints_changed, self._on_first_database_endpoints_changed
-        )
-        self.framework.observe(self.on["first-database"].relation_broken, self._on_relation_broken)
-
         self.first_database_name = f'{self.app.name.replace("-", "_")}_database'
         self.database = DatabaseRequires(
             self, "database", self.first_database_name, EXTRA_USER_ROLES
@@ -180,33 +168,6 @@ class ApplicationCharm(CharmBase):
         self.unit.status = ActiveStatus()
 
     # First database events observers.
-    def _on_first_database_created(self, event: DatabaseCreatedEvent) -> None:
-        """Event triggered when a database was created for this application."""
-        # Retrieve the credentials using the charm library.
-        logger.info(f"first database credentials: {event.username} {event.password}")
-        self.unit.status = ActiveStatus("received database credentials of the first database")
-
-    def _on_first_database_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
-        """Event triggered when the read/write endpoints of the database change."""
-        logger.info(f"first database endpoints have been changed to: {event.endpoints}")
-        if self._connection_string is None:
-            return
-
-        if not self.app_peer_data.get(PROC_PID_KEY):
-            return None
-
-        with open(CONFIG_FILE, "w") as fd:
-            fd.write(self._connection_string)
-            os.fsync(fd)
-
-        try:
-            os.kill(int(self.app_peer_data[PROC_PID_KEY]), signal.SIGKILL)
-        except ProcessLookupError:
-            del self.app_peer_data[PROC_PID_KEY]
-            return
-        count = self._count_writes()
-        self._start_continuous_writes(count + 1)
-
     def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
         """Event triggered when a database was created for this application."""
         # Retrieve the credentials using the charm library.
@@ -476,8 +437,6 @@ class ApplicationCharm(CharmBase):
         logger.info(event.params)
 
         relation_name = event.params["relation-name"]
-        if relation_name == self.first_database.relation_name:
-            relation = self.first_database
         if relation_name == self.database.relation_name:
             relation = self.database
         elif relation_name == self.second_database.relation_name:
@@ -520,8 +479,6 @@ class ApplicationCharm(CharmBase):
         logger.info(event.params)
 
         relation_name = event.params["relation-name"]
-        if relation_name == self.first_database.relation_name:
-            relation = self.first_database
         if relation_name == self.database.relation_name:
             relation = self.database
         elif relation_name == self.second_database.relation_name:

@@ -22,8 +22,6 @@ requires:
   database:
     interface: postgresql_client
     limit: 1
-  first-database:
-    interface: postgresql_client
   second-database:
     interface: postgresql_client
     limit: 1
