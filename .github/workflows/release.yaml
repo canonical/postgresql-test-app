@@ -23,6 +23,8 @@ jobs:
   build:
     name: Build charm
     uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v17.0.1
+    # Have to rework DPW and charmcraft yaml to be able to use charmcraft 3
+    charmcraft-snap-channel: 2.x/stable
 
   release:
     name: Release charm
