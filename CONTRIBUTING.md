@@ -45,7 +45,7 @@ tox run -e lint          # code style
 Build the charm in this git repository using:
 
 ```shell
-tox run -e build-dev
+charmcraftcache pack
 ```
 
 ### Deploy
