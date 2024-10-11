@@ -22,9 +22,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseEndpointsChangedEvent,
     DatabaseRequires,
 )
-from ops.charm import ActionEvent, CharmBase
-from ops.main import main
-from ops.model import ActiveStatus, Relation
+from ops import ActionEvent, ActiveStatus, CharmBase, Relation, main
 from tenacity import RetryError, Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
@@ -64,10 +62,8 @@ class ApplicationCharm(CharmBase):
 
         # Events related to the first database that is requested
         # (these events are defined in the database requires charm library).
-        self.first_database_name = f'{self.app.name.replace("-", "_")}_database'
-        self.database = DatabaseRequires(
-            self, "database", self.first_database_name, EXTRA_USER_ROLES
-        )
+        self.database_name = f'{self.app.name.replace("-", "_")}_database'
+        self.database = DatabaseRequires(self, "database", self.database_name, EXTRA_USER_ROLES)
         self.framework.observe(self.database.on.database_created, self._on_database_created)
         self.framework.observe(
             self.database.on.endpoints_changed, self._on_database_endpoints_changed
@@ -162,6 +158,7 @@ class ApplicationCharm(CharmBase):
 
         self.framework.observe(self.on.run_sql_action, self._on_run_sql_action)
         self.framework.observe(self.on.test_tls_action, self._on_test_tls_action)
+        self.framework.observe(self.on.stop, self._on_stop)
 
     def _on_start(self, _) -> None:
         """Only sets an Active status."""
@@ -173,6 +170,8 @@ class ApplicationCharm(CharmBase):
         # Retrieve the credentials using the charm library.
         logger.info(f"database credentials: {event.username} {event.password}")
         self.unit.status = ActiveStatus("received database credentials of the first database")
+        if self.model.unit.is_leader() and "writes" in self.app_peer_data:
+            self._start_continuous_writes(int(self.app_peer_data.pop("writes")) + 1)
 
     def _on_database_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
         """Event triggered when the read/write endpoints of the database change."""
@@ -256,7 +255,7 @@ class ApplicationCharm(CharmBase):
         if db_data:
             data = db_data[0]
         else:
-            data = list(self.first_database.fetch_relation_data().values())[0]
+            data = list(self.database.fetch_relation_data().values())[0]
         username = data.get("username")
         password = data.get("password")
         endpoints = data.get("endpoints")
@@ -532,6 +531,10 @@ class ApplicationCharm(CharmBase):
         connection = psycopg2.connect(connstr)
         connection.autocommit = True
         return connection
+
+    def _on_stop(self):
+        if self.model.unit.is_leader():
+            self.app_peer_data["writes"] = self._stop_continuous_writes()
 
 
 if __name__ == "__main__":
