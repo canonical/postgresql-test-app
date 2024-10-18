@@ -8,7 +8,11 @@ import time
 
 import pytest
 from juju.relation import Relation
+from lightkube.core.client import Client
+from lightkube.resources.core_v1 import Pod
 from pytest_operator.plugin import OpsTest
+
+from .helperst import restart_machine
 
 logger = logging.getLogger(__name__)
 
@@ -107,3 +111,62 @@ async def test_smoke(ops_test: OpsTest) -> None:
     maximum = int(maximum)
 
     assert writes == count == maximum
+
+    await (
+        await ops_test.model.applications[TEST_APP_NAME]
+        .units[0]
+        .run_action("clear-continuous-writes")
+    ).wait()
+
+
+@pytest.mark.group(1)
+async def test_restart(ops_test: OpsTest) -> None:
+    """Verify that the charm works with latest Postgresql and Pgbouncer."""
+    is_k8s = ops_test.model.info.provider_type == "kubernetes"
+
+    logger.info("Start continuous writes")
+    await (
+        await ops_test.model.applications[TEST_APP_NAME]
+        .units[0]
+        .run_action("start-continuous-writes")
+    ).wait()
+
+    time.sleep(10)
+
+    results = await (
+        await ops_test.model.applications[TEST_APP_NAME]
+        .units[0]
+        .run_action("show-continuous-writes")
+    ).wait()
+    early_writes = int(results.results["writes"])
+
+    if is_k8s:
+        logger.info("Deleting the pod")
+        client = Client(namespace=ops_test.model.info.name)
+        client.delete(Pod, name=f"{TEST_APP_NAME}-0")
+    else:
+        logger.info("Restarting lxc")
+        await restart_machine(ops_test, ops_test.model.applications[TEST_APP_NAME].units[0].name)
+
+    logger.info("Wait for idle")
+    await ops_test.model.wait_for_idle(apps=[TEST_APP_NAME], status="active", timeout=600)
+
+    logger.info("Check that writes are increasing")
+    results = await (
+        await ops_test.model.applications[TEST_APP_NAME]
+        .units[0]
+        .run_action("show-continuous-writes")
+    ).wait()
+    show_writes = int(results.results["writes"])
+
+    time.sleep(10)
+
+    results = await (
+        await ops_test.model.applications[TEST_APP_NAME]
+        .units[0]
+        .run_action("stop-continuous-writes")
+    ).wait()
+
+    writes = int(results.results["writes"])
+    assert writes > 0
+    assert writes > show_writes > early_writes

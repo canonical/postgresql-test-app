@@ -2,14 +2,7 @@
 # See LICENSE file for licensing details.
 
 [tool.poetry]
-name = "postgresql-test-app"
-version = "0.0.1-dev.0"
-description = ""
-authors = []
-license = "Apache-2.0"
-readme = "README.md"
-homepage = "https://charmhub.io/postgresql-test-app"
-repository = "https://github.com/canonical/postgresql-test-app"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -34,12 +27,12 @@ optional = true
 [tool.poetry.group.lint.dependencies]
 codespell = "2.3.0"
 
-
 [tool.poetry.group.integration]
 optional = true
 
 [tool.poetry.group.integration.dependencies]
 pytest = "^8.3.3"
+lightkube = "^0.15.4"
 pytest-github-secrets = {git = "https://github.com/canonical/data-platform-workflows", tag = "v23.0.4", subdirectory = "python/pytest_plugins/github_secrets"}
 pytest-operator = "^0.38.0"
 pytest-operator-cache = {git = "https://github.com/canonical/data-platform-workflows", tag = "v23.0.4", subdirectory = "python/pytest_plugins/pytest_operator_cache"}
