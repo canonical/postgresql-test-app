@@ -22,9 +22,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseEndpointsChangedEvent,
     DatabaseRequires,
 )
-from ops.charm import ActionEvent, CharmBase
-from ops.main import main
-from ops.model import ActiveStatus, Relation
+from ops import ActionEvent, ActiveStatus, CharmBase, Relation, StartEvent, main
 from tenacity import RetryError, Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
@@ -64,10 +62,8 @@ class ApplicationCharm(CharmBase):
 
         # Events related to the first database that is requested
         # (these events are defined in the database requires charm library).
-        self.first_database_name = f'{self.app.name.replace("-", "_")}_database'
-        self.database = DatabaseRequires(
-            self, "database", self.first_database_name, EXTRA_USER_ROLES
-        )
+        self.database_name = f'{self.app.name.replace("-", "_")}_database'
+        self.database = DatabaseRequires(self, "database", self.database_name, EXTRA_USER_ROLES)
         self.framework.observe(self.database.on.database_created, self._on_database_created)
         self.framework.observe(
             self.database.on.endpoints_changed, self._on_database_endpoints_changed
@@ -163,9 +159,31 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(self.on.run_sql_action, self._on_run_sql_action)
         self.framework.observe(self.on.test_tls_action, self._on_test_tls_action)
 
-    def _on_start(self, _) -> None:
+    def are_writes_running(self) -> bool:
+        """Returns whether continuous writes script is running."""
+        try:
+            os.kill(int(self.app_peer_data[PROC_PID_KEY]))
+            return True
+        except Exception:
+            return False
+
+    def _on_start(self, event: StartEvent) -> None:
         """Only sets an Active status."""
         self.unit.status = ActiveStatus()
+        if (
+            self.model.unit.is_leader()
+            and PROC_PID_KEY in self.app_peer_data
+            and not self.are_writes_running()
+        ):
+            try:
+                writes = self._get_db_writes()
+            except Exception:
+                logger.debug("Connection to db not yet available")
+                event.defer()
+                return
+            if writes > 0:
+                logger.info("Restarting continuous writes from db")
+                self._start_continuous_writes(writes + 1)
 
     # First database events observers.
     def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
@@ -256,7 +274,7 @@ class ApplicationCharm(CharmBase):
         if db_data:
             data = db_data[0]
         else:
-            data = list(self.first_database.fetch_relation_data().values())[0]
+            data = list(self.database.fetch_relation_data().values())[0]
         username = data.get("username")
         password = data.get("password")
         endpoints = data.get("endpoints")
@@ -343,20 +361,24 @@ class ApplicationCharm(CharmBase):
         self._start_continuous_writes(1)
         event.set_results({"result": "True"})
 
-    def _on_show_continuous_writes_action(self, event: ActionEvent) -> None:
-        """Count the continuous writes."""
+    def _get_db_writes(self) -> int:
         try:
             with psycopg2.connect(
                 self._connection_string
             ) as connection, connection.cursor() as cursor:
                 connection.autocommit = True
                 cursor.execute("SELECT COUNT(*) FROM continuous_writes;")
-                event.set_results({"writes": cursor.fetchone()[0]})
+                writes = cursor.fetchone()[0]
         except Exception:
-            event.set_results({"writes": -1})
+            writes = -1
             logger.exception("Unable to count writes")
         finally:
             connection.close()
+        return writes
+
+    def _on_show_continuous_writes_action(self, event: ActionEvent) -> None:
+        """Count the continuous writes."""
+        event.set_results({"writes": self._get_db_writes()})
 
     def _on_stop_continuous_writes_action(self, event: ActionEvent) -> None:
         """Stops the continuous writes process."""
