@@ -158,11 +158,23 @@ class ApplicationCharm(CharmBase):
 
         self.framework.observe(self.on.run_sql_action, self._on_run_sql_action)
         self.framework.observe(self.on.test_tls_action, self._on_test_tls_action)
-        self.framework.observe(self.on.stop, self._on_stop)
+
+    def is_writes_running(self) -> bool:
+        """Returns whether continuous writes script is running."""
+        try:
+            os.kill(int(self.app_peer_data[PROC_PID_KEY]))
+            return True
+        except Exception:
+            return False
 
     def _on_start(self, _) -> None:
         """Only sets an Active status."""
         self.unit.status = ActiveStatus()
+        if self.model.unit.is_leader() and PROC_PID_KEY in self.app_peer_data:
+            writes = self._get_db_writes()
+            if writes > 0:
+                logger.info("Restarting continuous writes from db")
+                self._start_continuous_writes(writes + 1)
 
     # First database events observers.
     def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
@@ -170,8 +182,6 @@ class ApplicationCharm(CharmBase):
         # Retrieve the credentials using the charm library.
         logger.info(f"database credentials: {event.username} {event.password}")
         self.unit.status = ActiveStatus("received database credentials of the first database")
-        if self.model.unit.is_leader() and "writes" in self.app_peer_data:
-            self._start_continuous_writes(int(self.app_peer_data.pop("writes")) + 1)
 
     def _on_database_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
         """Event triggered when the read/write endpoints of the database change."""
@@ -342,20 +352,24 @@ class ApplicationCharm(CharmBase):
         self._start_continuous_writes(1)
         event.set_results({"result": "True"})
 
-    def _on_show_continuous_writes_action(self, event: ActionEvent) -> None:
-        """Count the continuous writes."""
+    def _get_db_writes(self) -> int:
         try:
             with psycopg2.connect(
                 self._connection_string
             ) as connection, connection.cursor() as cursor:
                 connection.autocommit = True
                 cursor.execute("SELECT COUNT(*) FROM continuous_writes;")
-                event.set_results({"writes": cursor.fetchone()[0]})
+                writes = cursor.fetchone()[0]
         except Exception:
-            event.set_results({"writes": -1})
+            writes = -1
             logger.exception("Unable to count writes")
         finally:
             connection.close()
+        return writes
+
+    def _on_show_continuous_writes_action(self, event: ActionEvent) -> None:
+        """Count the continuous writes."""
+        event.set_results({"writes": self._get_db_writes()})
 
     def _on_stop_continuous_writes_action(self, event: ActionEvent) -> None:
         """Stops the continuous writes process."""
@@ -531,10 +545,6 @@ class ApplicationCharm(CharmBase):
         connection = psycopg2.connect(connstr)
         connection.autocommit = True
         return connection
-
-    def _on_stop(self):
-        if self.model.unit.is_leader():
-            self.app_peer_data["writes"] = self._stop_continuous_writes()
 
 
 if __name__ == "__main__":
