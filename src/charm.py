@@ -178,7 +178,7 @@ class ApplicationCharm(CharmBase):
             try:
                 writes = self._get_db_writes()
             except Exception:
-                logger.debug("Connection to db not yet avaialable")
+                logger.debug("Connection to db not yet available")
                 event.defer()
                 return
             if writes > 0:
