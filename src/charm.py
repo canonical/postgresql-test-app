@@ -22,7 +22,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseEndpointsChangedEvent,
     DatabaseRequires,
 )
-from ops import ActionEvent, ActiveStatus, CharmBase, Relation, main
+from ops import ActionEvent, ActiveStatus, CharmBase, Relation, StartEvent, main
 from tenacity import RetryError, Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
@@ -167,7 +167,7 @@ class ApplicationCharm(CharmBase):
         except Exception:
             return False
 
-    def _on_start(self, _) -> None:
+    def _on_start(self, event: StartEvent) -> None:
         """Only sets an Active status."""
         self.unit.status = ActiveStatus()
         if (
@@ -175,7 +175,12 @@ class ApplicationCharm(CharmBase):
             and PROC_PID_KEY in self.app_peer_data
             and not self.are_writes_running()
         ):
-            writes = self._get_db_writes()
+            try:
+                writes = self._get_db_writes()
+            except Exception:
+                logger.debug("Connection to db not yet avaialable")
+                event.defer()
+                return
             if writes > 0:
                 logger.info("Restarting continuous writes from db")
                 self._start_continuous_writes(writes + 1)
