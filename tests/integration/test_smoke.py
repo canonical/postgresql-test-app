@@ -12,7 +12,7 @@ from lightkube.core.client import Client
 from lightkube.resources.core_v1 import Pod
 from pytest_operator.plugin import OpsTest
 
-from .helperst import restart_machine
+from .helpers import restart_machine
 
 logger = logging.getLogger(__name__)
 

@@ -159,7 +159,7 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(self.on.run_sql_action, self._on_run_sql_action)
         self.framework.observe(self.on.test_tls_action, self._on_test_tls_action)
 
-    def is_writes_running(self) -> bool:
+    def are_writes_running(self) -> bool:
         """Returns whether continuous writes script is running."""
         try:
             os.kill(int(self.app_peer_data[PROC_PID_KEY]))
@@ -170,7 +170,11 @@ class ApplicationCharm(CharmBase):
     def _on_start(self, _) -> None:
         """Only sets an Active status."""
         self.unit.status = ActiveStatus()
-        if self.model.unit.is_leader() and PROC_PID_KEY in self.app_peer_data:
+        if (
+            self.model.unit.is_leader()
+            and PROC_PID_KEY in self.app_peer_data
+            and not self.are_writes_running()
+        ):
             writes = self._get_db_writes()
             if writes > 0:
                 logger.info("Restarting continuous writes from db")
