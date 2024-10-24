@@ -21,7 +21,8 @@ def _sigterm_handler(_signo, _stack_frame):
 
 
 def _read_config_file():
-    with open("/tmp/continuous_writes_config") as fd:
+    # Expected tmp access
+    with open("/tmp/continuous_writes_config") as fd:  # noqa: S108
         global connection_string
         connection_string = fd.read().strip()
 
@@ -50,7 +51,8 @@ def continuous_writes(starting_number: int, sleep_interval: float = 0.0):
             write_value = write_value + 1
         sleep(sleep_interval)
 
-    with open("/tmp/last_written_value", "w") as fd:
+    # Expected tmp access
+    with open("/tmp/last_written_value", "w") as fd:  # noqa: S108
         fd.write(str(write_value - 1))
         os.fsync(fd)
 
@@ -82,10 +84,7 @@ def write(write_value: int) -> None:
 def main():
     """Main executor."""
     starting_number = int(sys.argv[1])
-    if len(sys.argv) > 2:
-        sleep_interval = int(sys.argv[2]) / 1000
-    else:
-        sleep_interval = 0.0
+    sleep_interval = int(sys.argv[2]) / 1000 if len(sys.argv) > 2 else 0.0
     continuous_writes(starting_number, sleep_interval)
 
 
