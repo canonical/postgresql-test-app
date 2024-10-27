@@ -62,7 +62,7 @@ class ApplicationCharm(CharmBase):
 
         # Events related to the first database that is requested
         # (these events are defined in the database requires charm library).
-        self.database_name = f'{self.app.name.replace("-", "_")}_database'
+        self.database_name = f"{self.app.name.replace('-', '_')}_database"
         self.database = DatabaseRequires(self, "database", self.database_name, EXTRA_USER_ROLES)
         self.framework.observe(self.database.on.database_created, self._on_database_created)
         self.framework.observe(
@@ -84,7 +84,7 @@ class ApplicationCharm(CharmBase):
 
         # Events related to the second database that is requested
         # (these events are defined in the database requires charm library).
-        database_name = f'{self.app.name.replace("-", "_")}_second_database'
+        database_name = f"{self.app.name.replace('-', '_')}_second_database"
         self.second_database = DatabaseRequires(
             self, "second-database", database_name, EXTRA_USER_ROLES
         )
@@ -99,7 +99,7 @@ class ApplicationCharm(CharmBase):
         )
 
         # Multiple database clusters charm events (clusters/relations without alias).
-        database_name = f'{self.app.name.replace("-", "_")}_multiple_database_clusters'
+        database_name = f"{self.app.name.replace('-', '_')}_multiple_database_clusters"
         self.database_clusters = DatabaseRequires(
             self, "multiple-database-clusters", database_name, EXTRA_USER_ROLES
         )
@@ -116,7 +116,7 @@ class ApplicationCharm(CharmBase):
 
         # Multiple database clusters charm events (defined dynamically
         # in the database requires charm library, using the provided cluster/relation aliases).
-        database_name = f'{self.app.name.replace("-", "_")}_aliased_multiple_database_clusters'
+        database_name = f"{self.app.name.replace('-', '_')}_aliased_multiple_database_clusters"
         cluster_aliases = ["cluster1", "cluster2"]  # Aliases for the multiple clusters/relations.
         self.aliased_database_clusters = DatabaseRequires(
             self,
