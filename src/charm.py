@@ -13,7 +13,6 @@ import logging
 import os
 import signal
 import subprocess
-from typing import Dict, Optional
 
 import ops.lib
 import psycopg2
@@ -33,8 +32,9 @@ pgsql = ops.lib.use("pgsql", 1, "postgresql-charmers@lists.launchpad.net")
 EXTRA_USER_ROLES = "CREATEDB,CREATEROLE"
 
 PEER = "postgresql-test-peers"
-LAST_WRITTEN_FILE = "/tmp/last_written_value"
-CONFIG_FILE = "/tmp/continuous_writes_config"
+# Expected tmp access
+LAST_WRITTEN_FILE = "/tmp/last_written_value"  # noqa: S108
+CONFIG_FILE = "/tmp/continuous_writes_config"  # noqa: S108
 PROC_PID_KEY = "proc-pid"
 
 
@@ -42,12 +42,12 @@ class ApplicationCharm(CharmBase):
     """Application charm that connects to database charms."""
 
     @property
-    def _peers(self) -> Optional[Relation]:
+    def _peers(self) -> Relation | None:
         """Retrieve the peer relation (`ops.model.Relation`)."""
         return self.model.get_relation(PEER)
 
     @property
-    def app_peer_data(self) -> Dict:
+    def app_peer_data(self) -> dict:
         """Application peer relation data object."""
         if self._peers is None:
             return {}
@@ -62,7 +62,7 @@ class ApplicationCharm(CharmBase):
 
         # Events related to the first database that is requested
         # (these events are defined in the database requires charm library).
-        self.database_name = f'{self.app.name.replace("-", "_")}_database'
+        self.database_name = f"{self.app.name.replace('-', '_')}_database"
         self.database = DatabaseRequires(self, "database", self.database_name, EXTRA_USER_ROLES)
         self.framework.observe(self.database.on.database_created, self._on_database_created)
         self.framework.observe(
@@ -84,7 +84,7 @@ class ApplicationCharm(CharmBase):
 
         # Events related to the second database that is requested
         # (these events are defined in the database requires charm library).
-        database_name = f'{self.app.name.replace("-", "_")}_second_database'
+        database_name = f"{self.app.name.replace('-', '_')}_second_database"
         self.second_database = DatabaseRequires(
             self, "second-database", database_name, EXTRA_USER_ROLES
         )
@@ -99,7 +99,7 @@ class ApplicationCharm(CharmBase):
         )
 
         # Multiple database clusters charm events (clusters/relations without alias).
-        database_name = f'{self.app.name.replace("-", "_")}_multiple_database_clusters'
+        database_name = f"{self.app.name.replace('-', '_')}_multiple_database_clusters"
         self.database_clusters = DatabaseRequires(
             self, "multiple-database-clusters", database_name, EXTRA_USER_ROLES
         )
@@ -116,7 +116,7 @@ class ApplicationCharm(CharmBase):
 
         # Multiple database clusters charm events (defined dynamically
         # in the database requires charm library, using the provided cluster/relation aliases).
-        database_name = f'{self.app.name.replace("-", "_")}_aliased_multiple_database_clusters'
+        database_name = f"{self.app.name.replace('-', '_')}_aliased_multiple_database_clusters"
         cluster_aliases = ["cluster1", "cluster2"]  # Aliases for the multiple clusters/relations.
         self.aliased_database_clusters = DatabaseRequires(
             self,
@@ -268,13 +268,15 @@ class ApplicationCharm(CharmBase):
 
     # HA event observers
     @property
-    def _connection_string(self) -> Optional[str]:
+    def _connection_string(self) -> str | None:
         """Returns the PostgreSQL connection string."""
         db_data = list(self.database.fetch_relation_data().values())
-        if db_data:
-            data = db_data[0]
-        else:
-            data = list(self.database.fetch_relation_data().values())[0]
+        data = (
+            db_data[0]
+            if db_data
+            else next(data for data in self.database.fetch_relation_data().values())
+        )
+
         username = data.get("username")
         password = data.get("password")
         endpoints = data.get("endpoints")
@@ -294,9 +296,10 @@ class ApplicationCharm(CharmBase):
 
     def _count_writes(self) -> int:
         """Count the number of records in the continuous_writes table."""
-        with psycopg2.connect(
-            self._connection_string
-        ) as connection, connection.cursor() as cursor:
+        with (
+            psycopg2.connect(self._connection_string) as connection,
+            connection.cursor() as cursor,
+        ):
             cursor.execute("SELECT COUNT(number) FROM continuous_writes;")
             count = cursor.fetchone()[0]
         connection.close()
@@ -316,9 +319,10 @@ class ApplicationCharm(CharmBase):
             return
 
         try:
-            with psycopg2.connect(
-                self._connection_string
-            ) as connection, connection.cursor() as cursor:
+            with (
+                psycopg2.connect(self._connection_string) as connection,
+                connection.cursor() as cursor,
+            ):
                 cursor.execute("DROP TABLE IF EXISTS continuous_writes;")
             event.set_results({"result": "True"})
         except Exception as e:
@@ -343,9 +347,10 @@ class ApplicationCharm(CharmBase):
         try:
             # Create the table to write records on and also a unique index to prevent duplicate
             # writes.
-            with psycopg2.connect(
-                self._connection_string
-            ) as connection, connection.cursor() as cursor:
+            with (
+                psycopg2.connect(self._connection_string) as connection,
+                connection.cursor() as cursor,
+            ):
                 connection.autocommit = True
                 cursor.execute("CREATE TABLE IF NOT EXISTS continuous_writes(number INTEGER);")
                 cursor.execute(
@@ -363,9 +368,10 @@ class ApplicationCharm(CharmBase):
 
     def _get_db_writes(self) -> int:
         try:
-            with psycopg2.connect(
-                self._connection_string
-            ) as connection, connection.cursor() as cursor:
+            with (
+                psycopg2.connect(self._connection_string) as connection,
+                connection.cursor() as cursor,
+            ):
                 connection.autocommit = True
                 cursor.execute("SELECT COUNT(*) FROM continuous_writes;")
                 writes = cursor.fetchone()[0]
@@ -398,7 +404,7 @@ class ApplicationCharm(CharmBase):
             os.fsync(fd)
 
         # Run continuous writes in the background.
-        popen = subprocess.Popen([
+        popen = subprocess.Popen([  # noqa: S603
             "/usr/bin/python3",
             "src/continuous_writes.py",
             str(starting_number),
@@ -408,7 +414,7 @@ class ApplicationCharm(CharmBase):
         # Store the continuous writes process ID to stop the process later.
         self.app_peer_data[PROC_PID_KEY] = str(popen.pid)
 
-    def _stop_continuous_writes(self) -> Optional[int]:
+    def _stop_continuous_writes(self) -> int | None:
         """Stops continuous writes to PostgreSQL and returns the last written value."""
         if not self.app_peer_data.get(PROC_PID_KEY):
             return None
@@ -425,9 +431,8 @@ class ApplicationCharm(CharmBase):
         # Return the max written value (or -1 if it was not possible to get that value).
         try:
             for attempt in Retrying(stop=stop_after_delay(60), wait=wait_fixed(5)):
-                with attempt:
-                    with open(LAST_WRITTEN_FILE, "r") as fd:
-                        last_written_value = int(fd.read())
+                with attempt, open(LAST_WRITTEN_FILE) as fd:
+                    last_written_value = int(fd.read())
         except RetryError as e:
             logger.exception("Unable to read result", exc_info=e)
             return -1
@@ -466,7 +471,7 @@ class ApplicationCharm(CharmBase):
         else:
             event.fail(message="invalid relation name")
 
-        databag = list(relation.fetch_relation_data().values())[0]
+        databag = next(databag for databag in relation.fetch_relation_data().values())
 
         dbname = event.params["dbname"]
         query = event.params["query"]
@@ -508,7 +513,7 @@ class ApplicationCharm(CharmBase):
         else:
             event.fail(message="invalid relation name")
 
-        databag = list(relation.fetch_relation_data().values())[0]
+        databag = next(databag for databag in relation.fetch_relation_data().values())
 
         dbname = event.params["dbname"]
         user = databag.get("username")
