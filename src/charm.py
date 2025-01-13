@@ -405,7 +405,7 @@ class ApplicationCharm(CharmBase):
 
         # Run continuous writes in the background.
         popen = subprocess.Popen([  # noqa: S603
-            "/usr/bin/python3",
+            "venv/bin/python",
             "src/continuous_writes.py",
             str(starting_number),
             str(self.config["sleep_interval"]),
