@@ -11,6 +11,7 @@ of the libraries in this repository.
 import json
 import logging
 import os
+import pathlib
 import signal
 import subprocess
 
@@ -405,7 +406,7 @@ class ApplicationCharm(CharmBase):
 
         # Run continuous writes in the background.
         popen = subprocess.Popen([  # noqa: S603
-            "/usr/bin/python3",
+            str(pathlib.Path("venv/bin/python").absolute()),
             "src/continuous_writes.py",
             str(starting_number),
             str(self.config["sleep_interval"]),
