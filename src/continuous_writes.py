@@ -37,8 +37,6 @@ def continuous_writes(starting_number: int, sleep_interval: float = 0.0):
     """
     write_value = starting_number
 
-    _read_config_file()
-
     # Continuously write the record to the database (incrementing it at each iteration).
     while run:
         process = multiprocessing.Process(target=write, args=[write_value])
@@ -60,6 +58,7 @@ def continuous_writes(starting_number: int, sleep_interval: float = 0.0):
 def write(write_value: int) -> None:
     """Writes to the database and handles expected errors."""
     try:
+        _read_config_file()
         with psycopg2.connect(connection_string) as connection, connection.cursor() as cursor:
             connection.autocommit = True
             cursor.execute(f"INSERT INTO continuous_writes(number) VALUES({write_value});")

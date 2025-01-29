@@ -206,14 +206,6 @@ class ApplicationCharm(CharmBase):
             fd.write(self._connection_string)
             os.fsync(fd)
 
-        try:
-            os.kill(int(self.app_peer_data[PROC_PID_KEY]), signal.SIGKILL)
-        except ProcessLookupError:
-            del self.app_peer_data[PROC_PID_KEY]
-            return
-        count = self._count_writes()
-        self._start_continuous_writes(count + 1)
-
     def _on_relation_broken(self, _) -> None:
         """Event triggered when a database relation is left."""
         self.unit.status = ActiveStatus("")
@@ -293,6 +285,8 @@ class ApplicationCharm(CharmBase):
         return (
             f"dbname='{database}' user='{username}'"
             f" host='{host}' password='{password}' port={port} connect_timeout=5"
+            # Keepalive settings to keep in case the primary goes away
+            " keepalives=1 keepalives_idle=30 keepalives_count=1 tcp_user_timeout=30"
         )
 
     def _count_writes(self) -> int:
