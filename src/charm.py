@@ -286,7 +286,7 @@ class ApplicationCharm(CharmBase):
             f"dbname='{database}' user='{username}'"
             f" host='{host}' password='{password}' port={port} connect_timeout=5"
             # Keepalive settings to keep in case the primary goes away
-            " keepalives=1 keepalives_idle=30 keepalives_count=1"
+            " keepalives=1 keepalives_idle=30 keepalives_count=1 tcp_user_timeout=30"
         )
 
     def _count_writes(self) -> int:
