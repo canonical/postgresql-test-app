@@ -6,8 +6,8 @@ from . import architecture
 
 
 @pytest.fixture(params=["lxd", "microk8s"], autouse=True)
-def cloud(cloud_name):
-    subprocess.run(["juju", "switch", cloud_name], check=True)
+def cloud(request):
+    subprocess.run(["juju", "switch", request.param], check=True)
 
 
 @pytest.fixture
