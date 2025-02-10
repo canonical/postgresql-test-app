@@ -7,7 +7,7 @@ from . import architecture
 
 @pytest.fixture(params=["lxd", "microk8s"], autouse=True)
 def cloud(request):
-    subprocess.run(["juju", "switch", request.param], check=True)
+    subprocess.run(["juju", "switch", f"concierge-{request.param}"], check=True)
 
 
 @pytest.fixture
