@@ -1,16 +1,6 @@
-import subprocess
-
-import juju.model
 import pytest
 
 from . import architecture
-
-
-@pytest.fixture(params=["lxd", "microk8s"], autouse=True)
-async def cloud(request):
-    controller = f"concierge-{request.param}"
-    subprocess.run(["juju", "switch", controller], check=True)
-    await juju.model.Controller().connect(controller)
 
 
 @pytest.fixture

@@ -59,12 +59,8 @@ backends:
       # Use instead of `concierge restore` to save time between tests
       # For example, with microk8s, using `concierge restore` takes twice as long as this (e.g. 6
       # min instead of 3 min between every spread job)
-      juju switch lxd
       juju destroy-model --force --no-wait --destroy-storage --no-prompt testing
-      juju kill-controller --no-prompt concierge-lxd
-      juju switch microk8s
-      juju destroy-model --force --no-wait --destroy-storage --no-prompt testing
-      juju kill-controller --no-prompt concierge-microk8s
+      juju kill-controller --no-prompt "$CONTROLLER_NAME"
     restore: |
       rm -rf "$SPREAD_PATH"
 
@@ -105,8 +101,14 @@ path: /root/spread_project
 kill-timeout: 3h
 environment:
   PATH: $PATH:$(pipx environment --value PIPX_BIN_DIR)
-  CONCIERGE_JUJU_CHANNEL/juju36: 3.6/stable
-  CONCIERGE_JUJU_CHANNEL/juju29: 2.9/stable
+  CONCIERGE_JUJU_CHANNEL/juju36_lxd: 3.6/stable
+  CONCIERGE_JUJU_CHANNEL/juju36_microk8s: 3.6/stable
+  CONCIERGE_JUJU_CHANNEL/juju29_lxd: 2.9/stable
+  CONCIERGE_JUJU_CHANNEL/juju29_microk8s: 2.9/stable
+  CONTROLLER_NAME/juju36_lxd: concierge-lxd
+  CONTROLLER_NAME/juju36_microk8s: concierge-microk8s
+  CONTROLLER_NAME/juju29_lxd: concierge-lxd
+  CONTROLLER_NAME/juju29_microk8s: concierge-microk8s
 prepare: |
   snap refresh --hold
   chown -R root:root "$SPREAD_PATH"
@@ -128,6 +130,7 @@ prepare-each: |
   # `concierge prepare` needs to be run for each spread job in case Juju version changed
   concierge prepare --trace
 
+  juju switch "$CONTROLLER_NAME"
   # Unable to set constraint on all models because of Juju bug:
   # https://bugs.launchpad.net/juju/+bug/2065050
   juju set-model-constraints arch="$(dpkg --print-architecture)"
