@@ -6,7 +6,6 @@ import asyncio
 import logging
 import time
 
-import pytest
 from juju.relation import Relation
 from lightkube.core.client import Client
 from lightkube.resources.core_v1 import Pod
@@ -26,8 +25,7 @@ async def integrate(ops_test: OpsTest, relation1: str, relation2: str) -> Relati
         return await ops_test.model.relate(relation1, relation2)
 
 
-@pytest.mark.group(1)
-async def test_smoke(ops_test: OpsTest) -> None:
+async def test_smoke(ops_test: OpsTest, charm) -> None:
     """Verify that the charm works with latest Postgresql and Pgbouncer."""
     logger.info("Deploy charms")
     is_k8s = ops_test.model.info.provider_type == "kubernetes"
@@ -56,7 +54,7 @@ async def test_smoke(ops_test: OpsTest) -> None:
             trust=True,
         ),
         ops_test.model.deploy(
-            await ops_test.build_charm("."),
+            charm,
             application_name=TEST_APP_NAME,
             num_units=1,
             series="jammy",
@@ -119,7 +117,6 @@ async def test_smoke(ops_test: OpsTest) -> None:
     ).wait()
 
 
-@pytest.mark.group(1)
 async def test_restart(ops_test: OpsTest) -> None:
     """Verify that the charm works with latest Postgresql and Pgbouncer."""
     is_k8s = ops_test.model.info.provider_type == "kubernetes"
