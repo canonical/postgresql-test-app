@@ -37,7 +37,6 @@ lightkube = "^0.17.1"
 pytest-operator = "^0.39.0"
 # renovate caret doesn't work: https://github.com/renovatebot/renovate/issues/26940
 juju = "<=3.6.1.0"
-allure-pytest-default-results = "^0.1.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
