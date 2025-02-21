@@ -116,7 +116,12 @@ prepare: |
   snap install --classic concierge
 
   # Install charmcraft & pipx (on lxd-vm backend)
-  concierge prepare --trace
+  if [[ $SPREAD_VARIANT == *"microk8s"* ]]
+  then
+    concierge prepare --trace -c concierge-microk8s.yaml
+  else
+    concierge prepare --trace -c concierge-lxd.yaml
+  fi
 
   pipx install tox poetry
 prepare-each: |
@@ -128,7 +133,13 @@ prepare-each: |
     poetry add --lock --group integration juju@^2
   fi
   # `concierge prepare` needs to be run for each spread job in case Juju version changed
-  concierge prepare --trace
+
+  if [[ $SPREAD_VARIANT == *"microk8s"* ]]
+  then
+    concierge prepare --trace -c concierge-microk8s.yaml
+  else
+    concierge prepare --trace -c concierge-lxd.yaml
+  fi
 
   juju switch "$CONTROLLER_NAME"
   # Unable to set constraint on all models because of Juju bug:
