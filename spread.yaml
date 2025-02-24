@@ -113,10 +113,12 @@ prepare: |
   snap refresh --hold
   chown -R root:root "$SPREAD_PATH"
   cd "$SPREAD_PATH"
-  snap install --classic concierge
+  # TODO: revert after https://github.com/jnsgruk/concierge/pull/41 merged
+  snap install go --classic
+  go install github.com/jnsgruk/concierge@retry-bootstrap-check
 
   # Install charmcraft & pipx (on lxd-vm backend)
-  concierge prepare --trace
+  ~/go/bin/concierge prepare --trace
 
   pipx install tox poetry
 prepare-each: |
@@ -128,7 +130,7 @@ prepare-each: |
     poetry add --lock --group integration juju@^2
   fi
   # `concierge prepare` needs to be run for each spread job in case Juju version changed
-  concierge prepare --trace
+  ~/go/bin/concierge prepare --trace
 
   juju switch "$CONTROLLER_NAME"
   # Unable to set constraint on all models because of Juju bug:
