@@ -4,6 +4,7 @@
 name: Weekly TICS scan
 
 on:
+  push:
   schedule:
     - cron: "0 2 * * 6" # Every Saturday 2:00 AM UTC
   workflow_dispatch:
@@ -19,7 +20,7 @@ jobs:
         run: |
           python3 -m venv .venv
           . .venv/bin/activate
-          pip install flake8 poetry pylint pytest tox
+          pip install flake8 poetry psycopg pylint pytest tox
           poetry install --all-groups
           echo PATH="$PATH" >> "$GITHUB_ENV"
 
