@@ -9,7 +9,8 @@ options:
       Request roles instead of extensions
     type: boolean
   sleep_interval:
-    default: 0
+    default: 500
     description: |
       How many milliseconds to sleep between writes
+      (app will try to write twice per second by default).
     type: int
