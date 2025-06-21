@@ -21,16 +21,15 @@ on:
         description: build_charm.yaml `artifact-prefix` output
         value: ${{ jobs.build.outputs.artifact-prefix }}
 
+permissions: {}
 jobs:
   lint:
     name: Lint
     uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v32.1.0
-    permissions: {}
 
   build:
     name: Build charm
     uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v32.1.0
-    permissions: {}
 
   integration-test:
     name: Integration test charm
@@ -40,4 +39,3 @@ jobs:
     uses: ./.github/workflows/integration_test.yaml
     with:
       artifact-prefix: ${{ needs.build.outputs.artifact-prefix }}
-    permissions: {}
