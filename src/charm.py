@@ -29,9 +29,6 @@ logger = logging.getLogger(__name__)
 
 pgsql = ops.lib.use("pgsql", 1, "postgresql-charmers@lists.launchpad.net")
 
-# Extra roles that this application needs when interacting with the database.
-EXTRA_USER_ROLES = "CREATEDB,CREATEROLE"
-
 PEER = "postgresql-test-peers"
 # Expected tmp access
 LAST_WRITTEN_FILE = "/tmp/last_written_value"  # noqa: S108
@@ -64,7 +61,9 @@ class ApplicationCharm(CharmBase):
         # Events related to the first database that is requested
         # (these events are defined in the database requires charm library).
         self.database_name = f"{self.app.name.replace('-', '_')}_database"
-        self.database = DatabaseRequires(self, "database", self.database_name, EXTRA_USER_ROLES)
+        self.database = DatabaseRequires(
+            self, "database", self.database_name, self.config["extra_user_roles"]
+        )
         self.framework.observe(self.database.on.database_created, self._on_database_created)
         self.framework.observe(
             self.database.on.endpoints_changed, self._on_database_endpoints_changed
@@ -87,7 +86,7 @@ class ApplicationCharm(CharmBase):
         # (these events are defined in the database requires charm library).
         database_name = f"{self.app.name.replace('-', '_')}_second_database"
         self.second_database = DatabaseRequires(
-            self, "second-database", database_name, EXTRA_USER_ROLES
+            self, "second-database", database_name, self.config["extra_user_roles"]
         )
         self.framework.observe(
             self.second_database.on.database_created, self._on_second_database_created
@@ -102,7 +101,7 @@ class ApplicationCharm(CharmBase):
         # Multiple database clusters charm events (clusters/relations without alias).
         database_name = f"{self.app.name.replace('-', '_')}_multiple_database_clusters"
         self.database_clusters = DatabaseRequires(
-            self, "multiple-database-clusters", database_name, EXTRA_USER_ROLES
+            self, "multiple-database-clusters", database_name, self.config["extra_user_roles"]
         )
         self.framework.observe(
             self.database_clusters.on.database_created, self._on_cluster_database_created
@@ -123,7 +122,7 @@ class ApplicationCharm(CharmBase):
             self,
             "aliased-multiple-database-clusters",
             database_name,
-            EXTRA_USER_ROLES,
+            self.config["extra_user_roles"],
             cluster_aliases,
         )
         # Each database cluster will have its own events
