@@ -61,7 +61,9 @@ class ApplicationCharm(CharmBase):
         # Events related to the first database that is requested
         # (these events are defined in the database requires charm library).
         self.database_name = f"{self.app.name.replace('-', '_')}_database"
-        self.database = DatabaseRequires(self, "database", self.database_name, self.config["extra_user_roles"])
+        self.database = DatabaseRequires(
+            self, "database", self.database_name, self.config["extra_user_roles"]
+        )
         self.framework.observe(self.database.on.database_created, self._on_database_created)
         self.framework.observe(
             self.database.on.endpoints_changed, self._on_database_endpoints_changed
