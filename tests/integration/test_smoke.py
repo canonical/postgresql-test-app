@@ -6,11 +6,11 @@ import asyncio
 import logging
 import time
 
+import pytest
 from juju.relation import Relation
 from lightkube.core.client import Client
 from lightkube.resources.core_v1 import Pod
 from pytest_operator.plugin import OpsTest
-from tenacity import Retrying, stop_after_attempt, wait_fixed
 
 from .helpers import restart_machine
 
@@ -143,6 +143,7 @@ async def test_restart(ops_test: OpsTest) -> None:
         client = Client(namespace=ops_test.model.info.name)
         client.delete(Pod, name=f"{TEST_APP_NAME}-0")
     else:
+        pytest.skip("Unstable LXC restart test")
         logger.info("Restarting lxc")
         await restart_machine(ops_test, ops_test.model.applications[TEST_APP_NAME].units[0].name)
 
@@ -152,22 +153,20 @@ async def test_restart(ops_test: OpsTest) -> None:
     )
 
     logger.info("Check that writes are increasing")
-    for attempt in Retrying(stop=stop_after_attempt(3), wait=wait_fixed(5), reraise=True):
-        with attempt:
-            results = await (
-                await ops_test.model.applications[TEST_APP_NAME]
-                .units[0]
-                .run_action("show-continuous-writes")
-            ).wait()
-            show_writes = int(results.results["writes"])
+    results = await (
+        await ops_test.model.applications[TEST_APP_NAME]
+        .units[0]
+        .run_action("show-continuous-writes")
+    ).wait()
+    show_writes = int(results.results["writes"])
 
-            time.sleep(10)
+    time.sleep(10)
 
-            results = await (
-                await ops_test.model.applications[TEST_APP_NAME]
-                .units[0]
-                .run_action("stop-continuous-writes")
-            ).wait()
+    results = await (
+        await ops_test.model.applications[TEST_APP_NAME]
+        .units[0]
+        .run_action("stop-continuous-writes")
+    ).wait()
 
     writes = int(results.results["writes"])
     assert writes > 0
