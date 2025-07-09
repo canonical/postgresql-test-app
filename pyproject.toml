@@ -35,6 +35,7 @@ optional = true
 pytest = "^8.4.1"
 lightkube = "^0.17.2"
 pytest-operator = "^0.42.0"
+tenacity = "*"
 # renovate caret doesn't work: https://github.com/renovatebot/renovate/issues/26940
 juju = "<=3.6.1.2"
 

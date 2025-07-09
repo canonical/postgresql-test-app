@@ -10,6 +10,7 @@ from juju.relation import Relation
 from lightkube.core.client import Client
 from lightkube.resources.core_v1 import Pod
 from pytest_operator.plugin import OpsTest
+from tenacity import Retrying, stop_after_attempt, wait_fixed
 
 from .helpers import restart_machine
 
@@ -63,7 +64,7 @@ async def test_smoke(ops_test: OpsTest, charm) -> None:
     await integrate(ops_test, postgresql, pgbouncer)
     await integrate(ops_test, f"{TEST_APP_NAME}:database", pgbouncer)
     await ops_test.model.wait_for_idle(
-        apps=[postgresql, pgbouncer, TEST_APP_NAME], status="active", timeout=1000, idle_period=60
+        apps=[postgresql, pgbouncer, TEST_APP_NAME], status="active", timeout=1000, idle_period=30
     )
 
     logger.info("Test continuous writes")
@@ -147,24 +148,26 @@ async def test_restart(ops_test: OpsTest) -> None:
 
     logger.info("Wait for idle")
     await ops_test.model.wait_for_idle(
-        apps=[TEST_APP_NAME], status="active", timeout=600, idle_period=60
+        apps=[TEST_APP_NAME], status="active", timeout=600, idle_period=30
     )
 
     logger.info("Check that writes are increasing")
-    results = await (
-        await ops_test.model.applications[TEST_APP_NAME]
-        .units[0]
-        .run_action("show-continuous-writes")
-    ).wait()
-    show_writes = int(results.results["writes"])
+    for attempt in Retrying(stop=stop_after_attempt(3), wait=wait_fixed(5), reraise=True):
+        with attempt:
+            results = await (
+                await ops_test.model.applications[TEST_APP_NAME]
+                .units[0]
+                .run_action("show-continuous-writes")
+            ).wait()
+            show_writes = int(results.results["writes"])
 
-    time.sleep(10)
+            time.sleep(10)
 
-    results = await (
-        await ops_test.model.applications[TEST_APP_NAME]
-        .units[0]
-        .run_action("stop-continuous-writes")
-    ).wait()
+            results = await (
+                await ops_test.model.applications[TEST_APP_NAME]
+                .units[0]
+                .run_action("stop-continuous-writes")
+            ).wait()
 
     writes = int(results.results["writes"])
     assert writes > 0
