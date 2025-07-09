@@ -63,7 +63,7 @@ async def test_smoke(ops_test: OpsTest, charm) -> None:
     await integrate(ops_test, postgresql, pgbouncer)
     await integrate(ops_test, f"{TEST_APP_NAME}:database", pgbouncer)
     await ops_test.model.wait_for_idle(
-        apps=[postgresql, pgbouncer, TEST_APP_NAME], status="active", timeout=1000, idle_period=30
+        apps=[postgresql, pgbouncer, TEST_APP_NAME], status="active", timeout=1000, idle_period=60
     )
 
     logger.info("Test continuous writes")
@@ -147,7 +147,7 @@ async def test_restart(ops_test: OpsTest) -> None:
 
     logger.info("Wait for idle")
     await ops_test.model.wait_for_idle(
-        apps=[TEST_APP_NAME], status="active", timeout=600, idle_period=30
+        apps=[TEST_APP_NAME], status="active", timeout=600, idle_period=60
     )
 
     logger.info("Check that writes are increasing")
