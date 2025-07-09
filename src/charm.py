@@ -338,6 +338,7 @@ class ApplicationCharm(CharmBase):
             logger.exception("Unable to stop writes to create table", exc_info=e)
             return
 
+        connection = None
         try:
             # Create the table to write records on and also a unique index to prevent duplicate
             # writes.
@@ -355,7 +356,8 @@ class ApplicationCharm(CharmBase):
             logger.exception("Unable to create table", exc_info=e)
             return
         finally:
-            connection.close()
+            if connection:
+                connection.close()
 
         self._start_continuous_writes(1)
         event.set_results({"result": "True"})
