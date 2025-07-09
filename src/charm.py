@@ -361,6 +361,7 @@ class ApplicationCharm(CharmBase):
         event.set_results({"result": "True"})
 
     def _get_db_writes(self) -> int:
+        connection = None
         try:
             with (
                 psycopg2.connect(self._connection_string) as connection,
@@ -373,7 +374,8 @@ class ApplicationCharm(CharmBase):
             writes = -1
             logger.exception("Unable to count writes")
         finally:
-            connection.close()
+            if connection:
+                connection.close()
         return writes
 
     def _on_show_continuous_writes_action(self, event: ActionEvent) -> None:
