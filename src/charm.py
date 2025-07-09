@@ -27,8 +27,6 @@ from tenacity import RetryError, Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
 
-pgsql = ops.lib.use("pgsql", 1, "postgresql-charmers@lists.launchpad.net")
-
 PEER = "postgresql-test-peers"
 # Expected tmp access
 LAST_WRITTEN_FILE = "/tmp/last_written_value"  # noqa: S108
@@ -151,10 +149,12 @@ class ApplicationCharm(CharmBase):
         self.no_database = DatabaseRequires(self, "no-database", database_name="")
 
         # Legacy interface
-        self.db = pgsql.PostgreSQLClient(self, "db")
-        self.framework.observe(
-            self.db.on.database_relation_joined, self._on_database_relation_joined
-        )
+        if self.model.juju_version.major < 4:
+            pgsql = ops.lib.use("pgsql", 1, "postgresql-charmers@lists.launchpad.net")
+            self.db = pgsql.PostgreSQLClient(self, "db")
+            self.framework.observe(
+                self.db.on.database_relation_joined, self._on_database_relation_joined
+            )
 
         self.framework.observe(self.on.run_sql_action, self._on_run_sql_action)
         self.framework.observe(self.on.test_tls_action, self._on_test_tls_action)
@@ -338,6 +338,7 @@ class ApplicationCharm(CharmBase):
             logger.exception("Unable to stop writes to create table", exc_info=e)
             return
 
+        connection = None
         try:
             # Create the table to write records on and also a unique index to prevent duplicate
             # writes.
@@ -355,12 +356,14 @@ class ApplicationCharm(CharmBase):
             logger.exception("Unable to create table", exc_info=e)
             return
         finally:
-            connection.close()
+            if connection:
+                connection.close()
 
         self._start_continuous_writes(1)
         event.set_results({"result": "True"})
 
     def _get_db_writes(self) -> int:
+        connection = None
         try:
             with (
                 psycopg2.connect(self._connection_string) as connection,
@@ -373,7 +376,8 @@ class ApplicationCharm(CharmBase):
             writes = -1
             logger.exception("Unable to count writes")
         finally:
-            connection.close()
+            if connection:
+                connection.close()
         return writes
 
     def _on_show_continuous_writes_action(self, event: ActionEvent) -> None:
@@ -436,10 +440,7 @@ class ApplicationCharm(CharmBase):
         return last_written_value
 
     # Legacy event handlers
-    def _on_database_relation_joined(
-        self,
-        event: pgsql.DatabaseRelationJoinedEvent,  # type: ignore
-    ) -> None:
+    def _on_database_relation_joined(self, event) -> None:
         """Handle db-relation-joined.
 
         Args:
