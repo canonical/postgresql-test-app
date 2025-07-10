@@ -22,7 +22,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseEndpointsChangedEvent,
     DatabaseRequires,
 )
-from ops import ActionEvent, ActiveStatus, CharmBase, Relation, StartEvent, main
+from ops import ActionEvent, ActiveStatus, CharmBase, Relation, StartEvent, WaitingStatus, main
 from tenacity import RetryError, Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
@@ -168,8 +168,8 @@ class ApplicationCharm(CharmBase):
             return False
 
     def _on_start(self, event: StartEvent) -> None:
-        """Only sets an Active status."""
-        self.unit.status = ActiveStatus()
+        """Sets initial Waiting status and checks if writes should be restarted."""
+        self.unit.status = WaitingStatus()
         if (
             self.model.unit.is_leader()
             and PROC_PID_KEY in self.app_peer_data
@@ -184,6 +184,9 @@ class ApplicationCharm(CharmBase):
             if writes > 0:
                 logger.info("Restarting continuous writes from db")
                 self._start_continuous_writes(writes + 1)
+                self.unit.status = ActiveStatus(
+                    "received database credentials of the first database"
+                )
 
     # First database events observers.
     def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
@@ -207,7 +210,7 @@ class ApplicationCharm(CharmBase):
 
     def _on_relation_broken(self, _) -> None:
         """Event triggered when a database relation is left."""
-        self.unit.status = ActiveStatus("")
+        self.unit.status = WaitingStatus()
 
     # Second database events observers.
     def _on_second_database_created(self, event: DatabaseCreatedEvent) -> None:
