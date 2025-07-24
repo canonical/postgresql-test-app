@@ -184,9 +184,7 @@ class ApplicationCharm(CharmBase):
             if writes > 0:
                 logger.info("Restarting continuous writes from db")
                 self._start_continuous_writes(writes + 1)
-                self.unit.status = ActiveStatus(
-                    "received database credentials of the first database"
-                )
+            self.unit.status = ActiveStatus("received database credentials of the first database")
 
     # First database events observers.
     def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
