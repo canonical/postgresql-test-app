@@ -176,7 +176,7 @@ class ApplicationCharm(CharmBase):
             and not self.are_writes_running()
         ):
             try:
-                writes = self._get_db_writes()
+                writes = self._get_db_writes(reraise=True)
             except Exception:
                 logger.debug("Connection to db not yet available")
                 event.defer()
@@ -365,7 +365,7 @@ class ApplicationCharm(CharmBase):
         self._start_continuous_writes(1)
         event.set_results({"result": "True"})
 
-    def _get_db_writes(self) -> int:
+    def _get_db_writes(self, reraise: bool = False) -> int:
         connection = None
         try:
             with (
@@ -375,9 +375,11 @@ class ApplicationCharm(CharmBase):
                 connection.autocommit = True
                 cursor.execute("SELECT COUNT(*) FROM continuous_writes;")
                 writes = cursor.fetchone()[0]
-        except Exception:
+        except Exception as e:
             writes = -1
             logger.exception("Unable to count writes")
+            if reraise:
+                raise e
         finally:
             if connection:
                 connection.close()
