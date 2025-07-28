@@ -22,7 +22,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseEndpointsChangedEvent,
     DatabaseRequires,
 )
-from ops import ActionEvent, ActiveStatus, CharmBase, Relation, StartEvent, WaitingStatus, main
+from ops import ActionEvent, ActiveStatus, BlockedStatus, CharmBase, Relation, StartEvent, main
 from tenacity import RetryError, Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
@@ -169,7 +169,7 @@ class ApplicationCharm(CharmBase):
 
     def _on_start(self, event: StartEvent) -> None:
         """Sets initial Waiting status and checks if writes should be restarted."""
-        self.unit.status = WaitingStatus()
+        self.unit.status = BlockedStatus("Waiting for integration")
         if (
             self.model.unit.is_leader()
             and PROC_PID_KEY in self.app_peer_data
@@ -208,7 +208,12 @@ class ApplicationCharm(CharmBase):
 
     def _on_relation_broken(self, _) -> None:
         """Event triggered when a database relation is left."""
-        self.unit.status = WaitingStatus()
+        if (
+            not self.model.get_relation("database")
+            and not self.model.get_relation("second_database")
+            and not self.model.relations.get("aliased-multiple-database-clusters")
+        ):
+            self.unit.status = BlockedStatus("Waiting for integration")
 
     # Second database events observers.
     def _on_second_database_created(self, event: DatabaseCreatedEvent) -> None:
