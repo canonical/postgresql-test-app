@@ -36,6 +36,7 @@ from tenacity import RetryError, Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
 
+BLOCKED_NO_INTEGRATION_MSG = "No database integration available"
 PEER = "postgresql-test-peers"
 # Expected tmp access
 LAST_WRITTEN_FILE = "/tmp/last_written_value"  # noqa: S108
@@ -178,7 +179,7 @@ class ApplicationCharm(CharmBase):
 
     def _on_start(self, event: StartEvent) -> None:
         """Sets initial Waiting status and checks if writes should be restarted."""
-        self.unit.status = BlockedStatus("Waiting for integration")
+        self.unit.status = BlockedStatus(BLOCKED_NO_INTEGRATION_MSG)
         if (
             self.model.unit.is_leader()
             and PROC_PID_KEY in self.app_peer_data
@@ -217,15 +218,13 @@ class ApplicationCharm(CharmBase):
 
     def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Event triggered when a database relation is left."""
-        rels = [
+        if not any([
             *self.model.relations.get("database"),
             *self.model.relations.get("second-database"),
             *self.model.relations.get("multiple-database-clusters"),
             *self.model.relations.get("aliased-multiple-database-clusters"),
-        ]
-        rels.remove(event.relation)
-        if not rels:
-            self.unit.status = BlockedStatus("Waiting for integration")
+        ]):
+            self.unit.status = BlockedStatus(BLOCKED_NO_INTEGRATION_MSG)
 
     # Second database events observers.
     def _on_second_database_created(self, event: DatabaseCreatedEvent) -> None:
