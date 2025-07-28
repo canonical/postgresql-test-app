@@ -22,7 +22,16 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseEndpointsChangedEvent,
     DatabaseRequires,
 )
-from ops import ActionEvent, ActiveStatus, BlockedStatus, CharmBase, Relation, StartEvent, main
+from ops import (
+    ActionEvent,
+    ActiveStatus,
+    BlockedStatus,
+    CharmBase,
+    Relation,
+    RelationBrokenEvent,
+    StartEvent,
+    main,
+)
 from tenacity import RetryError, Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
@@ -206,13 +215,16 @@ class ApplicationCharm(CharmBase):
             fd.write(self._connection_string)
             os.fsync(fd)
 
-    def _on_relation_broken(self, _) -> None:
+    def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Event triggered when a database relation is left."""
-        if (
-            not self.model.get_relation("database")
-            and not self.model.get_relation("second_database")
-            and not self.model.relations.get("aliased-multiple-database-clusters")
-        ):
+        rels = [
+            *self.model.relations.get("database"),
+            *self.model.relations.get("second-database"),
+            *self.model.relations.get("multiple-database-clusters"),
+            *self.model.relations.get("aliased-multiple-database-clusters"),
+        ]
+        rels.remove(event.relation)
+        if not rels:
             self.unit.status = BlockedStatus("Waiting for integration")
 
     # Second database events observers.
