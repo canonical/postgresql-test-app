@@ -6,7 +6,6 @@ import asyncio
 import logging
 import time
 
-import pytest
 from juju.relation import Relation
 from lightkube.core.client import Client
 from lightkube.resources.core_v1 import Pod
@@ -143,7 +142,6 @@ async def test_restart(ops_test: OpsTest) -> None:
         client = Client(namespace=ops_test.model.info.name)
         client.delete(Pod, name=f"{TEST_APP_NAME}-0")
     else:
-        pytest.skip("Unstable LXC restart test")
         logger.info("Restarting lxc")
         await restart_machine(ops_test, ops_test.model.applications[TEST_APP_NAME].units[0].name)
 

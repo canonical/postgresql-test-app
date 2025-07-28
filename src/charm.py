@@ -22,11 +22,21 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseEndpointsChangedEvent,
     DatabaseRequires,
 )
-from ops import ActionEvent, ActiveStatus, CharmBase, Relation, StartEvent, main
+from ops import (
+    ActionEvent,
+    ActiveStatus,
+    BlockedStatus,
+    CharmBase,
+    Relation,
+    RelationBrokenEvent,
+    StartEvent,
+    main,
+)
 from tenacity import RetryError, Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
 
+BLOCKED_NO_INTEGRATION_MSG = "No database integration available"
 PEER = "postgresql-test-peers"
 # Expected tmp access
 LAST_WRITTEN_FILE = "/tmp/last_written_value"  # noqa: S108
@@ -168,15 +178,15 @@ class ApplicationCharm(CharmBase):
             return False
 
     def _on_start(self, event: StartEvent) -> None:
-        """Only sets an Active status."""
-        self.unit.status = ActiveStatus()
+        """Sets initial Waiting status and checks if writes should be restarted."""
+        self.unit.status = BlockedStatus(BLOCKED_NO_INTEGRATION_MSG)
         if (
             self.model.unit.is_leader()
             and PROC_PID_KEY in self.app_peer_data
             and not self.are_writes_running()
         ):
             try:
-                writes = self._get_db_writes()
+                writes = self._get_db_writes(reraise=True)
             except Exception:
                 logger.debug("Connection to db not yet available")
                 event.defer()
@@ -184,6 +194,7 @@ class ApplicationCharm(CharmBase):
             if writes > 0:
                 logger.info("Restarting continuous writes from db")
                 self._start_continuous_writes(writes + 1)
+            self.unit.status = ActiveStatus("received database credentials of the first database")
 
     # First database events observers.
     def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
@@ -205,9 +216,15 @@ class ApplicationCharm(CharmBase):
             fd.write(self._connection_string)
             os.fsync(fd)
 
-    def _on_relation_broken(self, _) -> None:
+    def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Event triggered when a database relation is left."""
-        self.unit.status = ActiveStatus("")
+        if not any([
+            *self.model.relations.get("database"),
+            *self.model.relations.get("second-database"),
+            *self.model.relations.get("multiple-database-clusters"),
+            *self.model.relations.get("aliased-multiple-database-clusters"),
+        ]):
+            self.unit.status = BlockedStatus(BLOCKED_NO_INTEGRATION_MSG)
 
     # Second database events observers.
     def _on_second_database_created(self, event: DatabaseCreatedEvent) -> None:
@@ -362,7 +379,7 @@ class ApplicationCharm(CharmBase):
         self._start_continuous_writes(1)
         event.set_results({"result": "True"})
 
-    def _get_db_writes(self) -> int:
+    def _get_db_writes(self, reraise: bool = False) -> int:
         connection = None
         try:
             with (
@@ -372,9 +389,11 @@ class ApplicationCharm(CharmBase):
                 connection.autocommit = True
                 cursor.execute("SELECT COUNT(*) FROM continuous_writes;")
                 writes = cursor.fetchone()[0]
-        except Exception:
+        except Exception as e:
             writes = -1
             logger.exception("Unable to count writes")
+            if reraise:
+                raise e
         finally:
             if connection:
                 connection.close()
