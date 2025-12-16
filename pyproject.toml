@@ -20,7 +20,7 @@ ops = ">=2.0.0"
 optional = true
 
 [tool.poetry.group.format.dependencies]
-ruff = "^0.14.8"
+ruff = "^0.14.9"
 
 [tool.poetry.group.lint]
 optional = true
