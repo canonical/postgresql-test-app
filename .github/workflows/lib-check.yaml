@@ -15,6 +15,9 @@ on:
       - '**.md'
       - 'renovate.json'
 
+permissions:
+  contents: read
+
 jobs:
   lib-check:
     name: Check libraries
