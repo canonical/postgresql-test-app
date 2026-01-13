@@ -7,6 +7,9 @@ on:
     types:
       - opened
 
+permissions:
+  contents: read
+
 jobs:
   approve-pr:
     name: Approve Renovate pull request
