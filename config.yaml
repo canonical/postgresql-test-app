@@ -3,6 +3,11 @@
 
 options:
 
+  extra_user_roles:
+    default: ""
+    description: |
+      Extra user roles to be requested from the database.
+    type: string
   legacy_roles:
     default: false
     description: |

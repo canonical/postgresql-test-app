@@ -22,16 +22,21 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseEndpointsChangedEvent,
     DatabaseRequires,
 )
-from ops import ActionEvent, ActiveStatus, CharmBase, Relation, StartEvent, main
+from ops import (
+    ActionEvent,
+    ActiveStatus,
+    BlockedStatus,
+    CharmBase,
+    Relation,
+    RelationBrokenEvent,
+    StartEvent,
+    main,
+)
 from tenacity import RetryError, Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
 
-pgsql = ops.lib.use("pgsql", 1, "postgresql-charmers@lists.launchpad.net")
-
-# Extra roles that this application needs when interacting with the database.
-EXTRA_USER_ROLES = "CREATEDB,CREATEROLE"
-
+BLOCKED_NO_INTEGRATION_MSG = "No database integration available"
 PEER = "postgresql-test-peers"
 # Expected tmp access
 LAST_WRITTEN_FILE = "/tmp/last_written_value"  # noqa: S108
@@ -64,7 +69,9 @@ class ApplicationCharm(CharmBase):
         # Events related to the first database that is requested
         # (these events are defined in the database requires charm library).
         self.database_name = f"{self.app.name.replace('-', '_')}_database"
-        self.database = DatabaseRequires(self, "database", self.database_name, EXTRA_USER_ROLES)
+        self.database = DatabaseRequires(
+            self, "database", self.database_name, self.config["extra_user_roles"]
+        )
         self.framework.observe(self.database.on.database_created, self._on_database_created)
         self.framework.observe(
             self.database.on.endpoints_changed, self._on_database_endpoints_changed
@@ -87,7 +94,7 @@ class ApplicationCharm(CharmBase):
         # (these events are defined in the database requires charm library).
         database_name = f"{self.app.name.replace('-', '_')}_second_database"
         self.second_database = DatabaseRequires(
-            self, "second-database", database_name, EXTRA_USER_ROLES
+            self, "second-database", database_name, self.config["extra_user_roles"]
         )
         self.framework.observe(
             self.second_database.on.database_created, self._on_second_database_created
@@ -102,7 +109,7 @@ class ApplicationCharm(CharmBase):
         # Multiple database clusters charm events (clusters/relations without alias).
         database_name = f"{self.app.name.replace('-', '_')}_multiple_database_clusters"
         self.database_clusters = DatabaseRequires(
-            self, "multiple-database-clusters", database_name, EXTRA_USER_ROLES
+            self, "multiple-database-clusters", database_name, self.config["extra_user_roles"]
         )
         self.framework.observe(
             self.database_clusters.on.database_created, self._on_cluster_database_created
@@ -123,7 +130,7 @@ class ApplicationCharm(CharmBase):
             self,
             "aliased-multiple-database-clusters",
             database_name,
-            EXTRA_USER_ROLES,
+            self.config["extra_user_roles"],
             cluster_aliases,
         )
         # Each database cluster will have its own events
@@ -152,10 +159,12 @@ class ApplicationCharm(CharmBase):
         self.no_database = DatabaseRequires(self, "no-database", database_name="")
 
         # Legacy interface
-        self.db = pgsql.PostgreSQLClient(self, "db")
-        self.framework.observe(
-            self.db.on.database_relation_joined, self._on_database_relation_joined
-        )
+        if self.model.juju_version.major < 4:
+            pgsql = ops.lib.use("pgsql", 1, "postgresql-charmers@lists.launchpad.net")
+            self.db = pgsql.PostgreSQLClient(self, "db")
+            self.framework.observe(
+                self.db.on.database_relation_joined, self._on_database_relation_joined
+            )
 
         self.framework.observe(self.on.run_sql_action, self._on_run_sql_action)
         self.framework.observe(self.on.test_tls_action, self._on_test_tls_action)
@@ -169,15 +178,15 @@ class ApplicationCharm(CharmBase):
             return False
 
     def _on_start(self, event: StartEvent) -> None:
-        """Only sets an Active status."""
-        self.unit.status = ActiveStatus()
+        """Sets initial Waiting status and checks if writes should be restarted."""
+        self.unit.status = BlockedStatus(BLOCKED_NO_INTEGRATION_MSG)
         if (
             self.model.unit.is_leader()
             and PROC_PID_KEY in self.app_peer_data
             and not self.are_writes_running()
         ):
             try:
-                writes = self._get_db_writes()
+                writes = self._get_db_writes(reraise=True)
             except Exception:
                 logger.debug("Connection to db not yet available")
                 event.defer()
@@ -185,6 +194,7 @@ class ApplicationCharm(CharmBase):
             if writes > 0:
                 logger.info("Restarting continuous writes from db")
                 self._start_continuous_writes(writes + 1)
+            self.unit.status = ActiveStatus("received database credentials of the first database")
 
     # First database events observers.
     def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
@@ -206,9 +216,15 @@ class ApplicationCharm(CharmBase):
             fd.write(self._connection_string)
             os.fsync(fd)
 
-    def _on_relation_broken(self, _) -> None:
+    def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Event triggered when a database relation is left."""
-        self.unit.status = ActiveStatus("")
+        if not any([
+            *self.model.relations.get("database"),
+            *self.model.relations.get("second-database"),
+            *self.model.relations.get("multiple-database-clusters"),
+            *self.model.relations.get("aliased-multiple-database-clusters"),
+        ]):
+            self.unit.status = BlockedStatus(BLOCKED_NO_INTEGRATION_MSG)
 
     # Second database events observers.
     def _on_second_database_created(self, event: DatabaseCreatedEvent) -> None:
@@ -339,6 +355,7 @@ class ApplicationCharm(CharmBase):
             logger.exception("Unable to stop writes to create table", exc_info=e)
             return
 
+        connection = None
         try:
             # Create the table to write records on and also a unique index to prevent duplicate
             # writes.
@@ -356,12 +373,14 @@ class ApplicationCharm(CharmBase):
             logger.exception("Unable to create table", exc_info=e)
             return
         finally:
-            connection.close()
+            if connection:
+                connection.close()
 
         self._start_continuous_writes(1)
         event.set_results({"result": "True"})
 
-    def _get_db_writes(self) -> int:
+    def _get_db_writes(self, reraise: bool = False) -> int:
+        connection = None
         try:
             with (
                 psycopg2.connect(self._connection_string) as connection,
@@ -370,11 +389,14 @@ class ApplicationCharm(CharmBase):
                 connection.autocommit = True
                 cursor.execute("SELECT COUNT(*) FROM continuous_writes;")
                 writes = cursor.fetchone()[0]
-        except Exception:
+        except Exception as e:
             writes = -1
             logger.exception("Unable to count writes")
+            if reraise:
+                raise e
         finally:
-            connection.close()
+            if connection:
+                connection.close()
         return writes
 
     def _on_show_continuous_writes_action(self, event: ActionEvent) -> None:
@@ -437,10 +459,7 @@ class ApplicationCharm(CharmBase):
         return last_written_value
 
     # Legacy event handlers
-    def _on_database_relation_joined(
-        self,
-        event: pgsql.DatabaseRelationJoinedEvent,  # type: ignore
-    ) -> None:
+    def _on_database_relation_joined(self, event) -> None:
         """Handle db-relation-joined.
 
         Args:

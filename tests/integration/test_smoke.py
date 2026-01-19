@@ -63,12 +63,13 @@ async def test_smoke(ops_test: OpsTest, charm) -> None:
     await integrate(ops_test, postgresql, pgbouncer)
     await integrate(ops_test, f"{TEST_APP_NAME}:database", pgbouncer)
     await ops_test.model.wait_for_idle(
-        apps=[postgresql, pgbouncer, TEST_APP_NAME], status="active", timeout=1000
+        apps=[postgresql, pgbouncer, TEST_APP_NAME], status="active", timeout=1000, idle_period=30
     )
 
     logger.info("Test continuous writes")
     await (
-        await ops_test.model.applications[TEST_APP_NAME]
+        await ops_test.model
+        .applications[TEST_APP_NAME]
         .units[0]
         .run_action("start-continuous-writes")
     ).wait()
@@ -77,7 +78,8 @@ async def test_smoke(ops_test: OpsTest, charm) -> None:
 
     logger.info("Show continuous writes")
     results = await (
-        await ops_test.model.applications[TEST_APP_NAME]
+        await ops_test.model
+        .applications[TEST_APP_NAME]
         .units[0]
         .run_action("show-continuous-writes")
     ).wait()
@@ -86,7 +88,8 @@ async def test_smoke(ops_test: OpsTest, charm) -> None:
     time.sleep(10)
 
     results = await (
-        await ops_test.model.applications[TEST_APP_NAME]
+        await ops_test.model
+        .applications[TEST_APP_NAME]
         .units[0]
         .run_action("stop-continuous-writes")
     ).wait()
@@ -111,7 +114,8 @@ async def test_smoke(ops_test: OpsTest, charm) -> None:
     assert writes == count == maximum
 
     await (
-        await ops_test.model.applications[TEST_APP_NAME]
+        await ops_test.model
+        .applications[TEST_APP_NAME]
         .units[0]
         .run_action("clear-continuous-writes")
     ).wait()
@@ -123,7 +127,8 @@ async def test_restart(ops_test: OpsTest) -> None:
 
     logger.info("Start continuous writes")
     await (
-        await ops_test.model.applications[TEST_APP_NAME]
+        await ops_test.model
+        .applications[TEST_APP_NAME]
         .units[0]
         .run_action("start-continuous-writes")
     ).wait()
@@ -131,7 +136,8 @@ async def test_restart(ops_test: OpsTest) -> None:
     time.sleep(10)
 
     results = await (
-        await ops_test.model.applications[TEST_APP_NAME]
+        await ops_test.model
+        .applications[TEST_APP_NAME]
         .units[0]
         .run_action("show-continuous-writes")
     ).wait()
@@ -146,11 +152,14 @@ async def test_restart(ops_test: OpsTest) -> None:
         await restart_machine(ops_test, ops_test.model.applications[TEST_APP_NAME].units[0].name)
 
     logger.info("Wait for idle")
-    await ops_test.model.wait_for_idle(apps=[TEST_APP_NAME], status="active", timeout=600)
+    await ops_test.model.wait_for_idle(
+        apps=[TEST_APP_NAME], status="active", timeout=600, idle_period=30
+    )
 
     logger.info("Check that writes are increasing")
     results = await (
-        await ops_test.model.applications[TEST_APP_NAME]
+        await ops_test.model
+        .applications[TEST_APP_NAME]
         .units[0]
         .run_action("show-continuous-writes")
     ).wait()
@@ -159,7 +168,8 @@ async def test_restart(ops_test: OpsTest) -> None:
     time.sleep(10)
 
     results = await (
-        await ops_test.model.applications[TEST_APP_NAME]
+        await ops_test.model
+        .applications[TEST_APP_NAME]
         .units[0]
         .run_action("stop-continuous-writes")
     ).wait()
