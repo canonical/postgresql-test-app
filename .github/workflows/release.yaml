@@ -14,13 +14,12 @@ on:
       - '.github/workflows/ci.yaml'
       - '.github/workflows/lib-check.yaml'
 
-permissions:
-  contents: write  # Needed to create git tags
 jobs:
   ci-tests:
     name: Tests
     uses: ./.github/workflows/ci.yaml
     secrets: inherit
+    permissions: {}
 
   release:
     name: Release charm
