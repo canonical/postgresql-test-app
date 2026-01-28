@@ -230,7 +230,6 @@ class ApplicationCharm(CharmBase):
     def _on_second_database_created(self, event: DatabaseCreatedEvent) -> None:
         """Event triggered when a database was created for this application."""
         # Retrieve the credentials using the charm library.
-        logger.info(f"second database credentials: {event.username} {event.password}")
         self.unit.status = ActiveStatus("received database credentials of the second database")
 
     def _on_second_database_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
@@ -241,9 +240,6 @@ class ApplicationCharm(CharmBase):
     def _on_cluster_database_created(self, event: DatabaseCreatedEvent) -> None:
         """Event triggered when a database was created for this application."""
         # Retrieve the credentials using the charm library.
-        logger.info(
-            f"cluster {event.relation.app.name} credentials: {event.username} {event.password}"
-        )
         self.unit.status = ActiveStatus(
             f"received database credentials for cluster {event.relation.app.name}"
         )
@@ -258,7 +254,6 @@ class ApplicationCharm(CharmBase):
     def _on_cluster1_database_created(self, event: DatabaseCreatedEvent) -> None:
         """Event triggered when a database was created for this application."""
         # Retrieve the credentials using the charm library.
-        logger.info(f"cluster1 credentials: {event.username} {event.password}")
         self.unit.status = ActiveStatus("received database credentials for cluster1")
 
     def _on_cluster1_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
@@ -268,7 +263,6 @@ class ApplicationCharm(CharmBase):
     def _on_cluster2_database_created(self, event: DatabaseCreatedEvent) -> None:
         """Event triggered when a database was created for this application."""
         # Retrieve the credentials using the charm library.
-        logger.info(f"cluster2 credentials: {event.username} {event.password}")
         self.unit.status = ActiveStatus("received database credentials for cluster2")
 
     def _on_cluster2_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
@@ -569,7 +563,7 @@ class ApplicationCharm(CharmBase):
         connstr = f"dbname='{database}' user='{user}' host='{host}' port='{port}' password='{password}' connect_timeout=1"
         if tls:
             connstr = f"{connstr} sslmode=require"
-        logger.debug(f"connecting to database: \n{connstr}")
+        logger.debug(f"connecting to database: \n{database}")
         connection = psycopg2.connect(connstr)
         connection.autocommit = True
         return connection
