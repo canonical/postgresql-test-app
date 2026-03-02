@@ -3,3 +3,5 @@ environment:
   TEST_MODULE: test_smoke_noble.py
 execute: |
   tox run -e integration -- "tests/integration/$TEST_MODULE" --controller "$CONTROLLER_NAME" --model testing
+variants:
+  - -juju29
