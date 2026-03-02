@@ -4,4 +4,5 @@ environment:
 execute: |
   tox run -e integration -- "tests/integration/$TEST_MODULE" --controller "$CONTROLLER_NAME" --model testing
 variants:
-  - -juju29
+  - -juju29_lxd
+  - -juju29_microk8s
