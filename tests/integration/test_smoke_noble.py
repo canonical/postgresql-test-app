@@ -2,15 +2,10 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-import logging
 
 from pytest_operator.plugin import OpsTest
 
 from .helpers import restart_base, smoke_base
-
-logger = logging.getLogger(__name__)
-
-TEST_APP_NAME = "postgresql-test-app"
 
 
 async def test_smoke(ops_test: OpsTest, charm_noble) -> None:
