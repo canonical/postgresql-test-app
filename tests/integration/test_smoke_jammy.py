@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+# Copyright 2021 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+
+from pytest_operator.plugin import OpsTest
+
+from .helpers import restart_base, smoke_base
+
+
+async def test_smoke(ops_test: OpsTest, charm_jammy) -> None:
+    """Verify that the charm works with latest Postgresql and Pgbouncer."""
+    await smoke_base(ops_test, charm_jammy, "jammy")
+
+
+async def test_restart(ops_test: OpsTest) -> None:
+    """Verify that the charm works with latest Postgresql and Pgbouncer."""
+    await restart_base(ops_test)
