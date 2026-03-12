@@ -17,6 +17,7 @@ website:
 maintainers:
   - Canonical Data Platform <data-platform@lists.launchpad.net>
 
+charm-user: non-root
 
 requires:
   database:
