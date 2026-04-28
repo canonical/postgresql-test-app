@@ -45,7 +45,7 @@ def continuous_writes(starting_number: int, sleep_interval: float = 0.0):
         process.join(10)
         if process.is_alive():
             process.terminate()
-        else:
+        elif process.exitcode == 0:
             write_value = write_value + 1
         sleep(sleep_interval)
 
@@ -67,10 +67,7 @@ def write(write_value: int) -> None:
         psycopg2.OperationalError,
         psycopg2.errors.ReadOnlySqlTransaction,
     ):
-        # We should not raise any of those exceptions that can happen when a connection failure
-        # happens, for example, when a primary is being reelected after a failure on the old
-        # primary. In this case, force a timeout to not increment the written number.
-        sleep(30)
+        sys.exit(1)
     except psycopg2.Error:
         # If another error happens, like writing a duplicate number when a connection failed
         # in a previous iteration (but the transaction was already committed), just increment
