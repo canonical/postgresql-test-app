@@ -362,6 +362,8 @@ class ApplicationCharm(CharmBase):
                 cursor.execute(
                     "CREATE UNIQUE INDEX IF NOT EXISTS number ON continuous_writes(number);"
                 )
+                cursor.execute("SELECT MAX(number) FROM continuous_writes;")
+                starting_number = (cursor.fetchone()[0] or 0) + 1
         except Exception as e:
             event.set_results({"result": "False"})
             logger.exception("Unable to create table", exc_info=e)
@@ -370,7 +372,7 @@ class ApplicationCharm(CharmBase):
             if connection:
                 connection.close()
 
-        self._start_continuous_writes(1)
+        self._start_continuous_writes(starting_number)
         event.set_results({"result": "True"})
 
     def _get_db_writes(self, reraise: bool = False) -> int:
