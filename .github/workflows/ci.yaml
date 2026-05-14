@@ -45,6 +45,23 @@ jobs:
         run: tox run -e lint
     permissions: {}
 
+  unit-test:
+    name: Unit test charm
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install tox & poetry
+        run: |
+          pipx install tox
+          pipx install poetry
+      - name: Run tests
+        run: tox run -e unit
+    permissions: {}
+
   build:
     name: Build charm
     uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v49.0.1
@@ -57,6 +74,7 @@ jobs:
     needs:
       - lint-workflows
       - lint
+      - unit-test
       - build
     uses: ./.github/workflows/integration_test.yaml
     with:
