@@ -3,10 +3,13 @@
 name: Tests
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 on:
+  schedule:
+    - cron: "53 0 * * *"
+  workflow_dispatch:
   pull_request:
     paths-ignore:
       - '.gitignore'
