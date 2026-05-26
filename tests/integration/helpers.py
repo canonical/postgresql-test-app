@@ -7,6 +7,7 @@ import logging
 import subprocess
 import time
 
+from juju.errors import JujuAPIError
 from juju.relation import Relation
 from lightkube.core.client import Client
 from lightkube.resources.core_v1 import Pod
@@ -15,6 +16,32 @@ from pytest_operator.plugin import OpsTest
 logger = logging.getLogger(__name__)
 
 TEST_APP_NAME = "postgresql-test-app"
+
+
+async def deploy_with_retry(ops_test: OpsTest, charm_name: str, **kwargs) -> None:
+    """Deploy a charm, retrying transient download failures."""
+    max_attempts = 3
+    retry_delay_seconds = 10
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            await ops_test.model.deploy(charm_name, **kwargs)
+            return
+        except JujuAPIError as e:
+            error_message = str(e)
+            if "already exists" in error_message:
+                return
+            if "TLS handshake timeout" not in error_message or attempt == max_attempts:
+                raise
+            logger.warning(
+                "Transient deploy failure for %s (%s/%s): %s. Retrying in %ss.",
+                charm_name,
+                attempt,
+                max_attempts,
+                error_message,
+                retry_delay_seconds,
+            )
+            await asyncio.sleep(retry_delay_seconds)
 
 
 async def run_command_on_unit(ops_test: OpsTest, unit_name: str, command: str) -> str:
@@ -93,21 +120,24 @@ async def smoke_base(ops_test: OpsTest, charm: str, base: str) -> None:
         pg_channel = "16/edge"
         pg_base = "noble"
     await asyncio.gather(
-        ops_test.model.deploy(
+        deploy_with_retry(
+            ops_test,
             postgresql,
             channel=pg_channel,
             num_units=1,
             series=pg_base,
             trust=True,
         ),
-        ops_test.model.deploy(
+        deploy_with_retry(
+            ops_test,
             pgbouncer,
             channel="1/edge",
             num_units=pgb_units,
             series=pgb_base,
             trust=True,
         ),
-        ops_test.model.deploy(
+        deploy_with_retry(
+            ops_test,
             charm,
             application_name=TEST_APP_NAME,
             num_units=1,
