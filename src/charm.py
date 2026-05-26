@@ -284,9 +284,12 @@ class ApplicationCharm(CharmBase):
         if None in [username, password, endpoints, database]:
             return None
 
-        host, port = endpoints.split(":", 1)
+        endpoint_parts = endpoints.split(":", 1)
+        if len(endpoint_parts) != 2:
+            return None
+        host, port = endpoint_parts
 
-        if not host or host == "None":
+        if not host or host == "None" or not port:
             return None
 
         return (
