@@ -19,14 +19,9 @@ TEST_APP_NAME = "postgresql-test-app"
 
 
 async def deploy_with_retry(ops_test: OpsTest, charm_name: str, **kwargs) -> None:
-    """Deploy a charm with retries for transient charm download failures.
-
-    Retries up to 3 attempts with a 10s delay only when Juju returns
-    a TLS handshake timeout while downloading charm artifacts.
-    """
+    """Deploy a charm, retrying transient download failures."""
     max_attempts = 3
     retry_delay_seconds = 10
-    app_name = kwargs.get("application_name", charm_name)
 
     for attempt in range(1, max_attempts + 1):
         try:
@@ -34,7 +29,7 @@ async def deploy_with_retry(ops_test: OpsTest, charm_name: str, **kwargs) -> Non
             return
         except JujuAPIError as e:
             error_message = str(e)
-            if app_name in ops_test.model.applications:
+            if "already exists" in error_message:
                 return
             if "TLS handshake timeout" not in error_message or attempt == max_attempts:
                 raise
