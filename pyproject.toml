@@ -28,6 +28,14 @@ optional = true
 [tool.poetry.group.lint.dependencies]
 codespell = "2.4.2"
 
+[tool.poetry.group.unit]
+optional = true
+
+[tool.poetry.group.unit.dependencies]
+pytest = "^9.0.3"
+coverage = {version = "^7.8.2", extras = ["toml"]}
+ops = {version = "^3.7.0", extras = ["testing"]}
+
 [tool.poetry.group.integration]
 optional = true
 
@@ -94,3 +102,9 @@ max-complexity = 10
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.coverage.report]
+show_missing = true
