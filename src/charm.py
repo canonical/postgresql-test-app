@@ -273,21 +273,18 @@ class ApplicationCharm(CharmBase):
     @property
     def _connection_string(self) -> str | None:
         """Returns the PostgreSQL connection string."""
-        db_data = list(self.database.fetch_relation_data().values())
-        data = (
-            db_data[0]
-            if db_data
-            else next(data for data in self.database.fetch_relation_data().values())
-        )
+        data = next(iter(self.database.fetch_relation_data().values()), None)
+        if not data:
+            return None
 
         username = data.get("username")
         password = data.get("password")
         endpoints = data.get("endpoints")
         database = data.get("database")
-        if None in [username, password, endpoints]:
+        if None in [username, password, endpoints, database]:
             return None
 
-        host, port = endpoints.split(":")
+        host, port = endpoints.split(":", 1)
 
         if not host or host == "None":
             return None
@@ -480,8 +477,12 @@ class ApplicationCharm(CharmBase):
             relation = self.second_database
         else:
             event.fail(message="invalid relation name")
+            return
 
-        databag = next(databag for databag in relation.fetch_relation_data().values())
+        databag = next(iter(relation.fetch_relation_data().values()), None)
+        if not databag:
+            event.fail(message="relation data not available yet")
+            return
 
         dbname = event.params["dbname"]
         query = event.params["query"]
@@ -522,8 +523,12 @@ class ApplicationCharm(CharmBase):
             relation = self.second_database
         else:
             event.fail(message="invalid relation name")
+            return
 
-        databag = next(databag for databag in relation.fetch_relation_data().values())
+        databag = next(iter(relation.fetch_relation_data().values()), None)
+        if not databag:
+            event.fail(message="relation data not available yet")
+            return
 
         dbname = event.params["dbname"]
         user = databag.get("username")
