@@ -11,8 +11,6 @@ from charm import BLOCKED_NO_INTEGRATION_MSG, CONFIG_FILE, PROC_PID_KEY, Applica
 # Helpers
 # ---------------------------------------------------------------------------
 
-_FETCH_PATCH = "charms.data_platform_libs.v0.data_interfaces.DatabaseRequires.fetch_relation_data"
-
 
 def _ctx():
     """Create a fresh Context for ApplicationCharm."""
@@ -36,7 +34,7 @@ def _state(*, leader: bool = False, peer_data: dict | None = None) -> testing.St
 def test_on_start_no_relations():
     ctx = _ctx()
     state_in = _state(leader=False)
-    with patch(_FETCH_PATCH, return_value={}):
+    with patch("charm.DatabaseRequires.fetch_relation_data", return_value={}):
         state_out = ctx.run(ctx.on.start(), state_in)
     assert state_out.unit_status == testing.BlockedStatus(BLOCKED_NO_INTEGRATION_MSG)
 
@@ -50,7 +48,7 @@ def test_on_start_with_database_credentials():
             return {"0": {"username": "user", "password": "pass"}}
         return {}
 
-    with patch(_FETCH_PATCH, _fetch_side_effect):
+    with patch("charm.DatabaseRequires.fetch_relation_data", _fetch_side_effect):
         state_out = ctx.run(ctx.on.start(), state_in)
     assert state_out.unit_status == testing.ActiveStatus(
         "received database credentials of the first database"
@@ -66,7 +64,7 @@ def test_on_start_with_second_database_credentials():
             return {"0": {"username": "user", "password": "pass"}}
         return {}
 
-    with patch(_FETCH_PATCH, _fetch_side_effect):
+    with patch("charm.DatabaseRequires.fetch_relation_data", _fetch_side_effect):
         state_out = ctx.run(ctx.on.start(), state_in)
     assert state_out.unit_status == testing.ActiveStatus(
         "received database credentials of the second database"
@@ -82,7 +80,7 @@ def test_on_start_with_cluster_credentials():
             return {"0": {"username": "user", "password": "pass"}}
         return {}
 
-    with patch(_FETCH_PATCH, _fetch_side_effect):
+    with patch("charm.DatabaseRequires.fetch_relation_data", _fetch_side_effect):
         state_out = ctx.run(ctx.on.start(), state_in)
     assert state_out.unit_status == testing.ActiveStatus(
         "received database credentials for a database cluster"
@@ -98,7 +96,7 @@ def test_on_start_with_aliased_cluster_credentials():
             return {"0": {"username": "user", "password": "pass"}}
         return {}
 
-    with patch(_FETCH_PATCH, _fetch_side_effect):
+    with patch("charm.DatabaseRequires.fetch_relation_data", _fetch_side_effect):
         state_out = ctx.run(ctx.on.start(), state_in)
     assert state_out.unit_status == testing.ActiveStatus(
         "received database credentials for an aliased database cluster"
@@ -109,7 +107,7 @@ def test_on_start_restarts_writes():
     ctx = _ctx()
     state_in = _state(leader=True, peer_data={PROC_PID_KEY: "12345"})
     with (
-        patch(_FETCH_PATCH, return_value={}),
+        patch("charm.DatabaseRequires.fetch_relation_data", return_value={}),
         patch.object(ApplicationCharm, "are_writes_running", return_value=False),
         patch.object(ApplicationCharm, "_get_db_writes", return_value=5),
         patch.object(ApplicationCharm, "_start_continuous_writes") as mock_start,
@@ -125,7 +123,7 @@ def test_on_start_writes_zero():
     ctx = _ctx()
     state_in = _state(leader=True, peer_data={PROC_PID_KEY: "12345"})
     with (
-        patch(_FETCH_PATCH, return_value={}),
+        patch("charm.DatabaseRequires.fetch_relation_data", return_value={}),
         patch.object(ApplicationCharm, "are_writes_running", return_value=False),
         patch.object(ApplicationCharm, "_get_db_writes", return_value=0),
         patch.object(ApplicationCharm, "_start_continuous_writes") as mock_start,
@@ -142,7 +140,7 @@ def test_on_start_defers_on_db_error():
     ctx = _ctx()
     state_in = _state(leader=True, peer_data={PROC_PID_KEY: "12345"})
     with (
-        patch(_FETCH_PATCH, return_value={}),
+        patch("charm.DatabaseRequires.fetch_relation_data", return_value={}),
         patch.object(ApplicationCharm, "are_writes_running", return_value=False),
         patch.object(
             ApplicationCharm, "_get_db_writes", side_effect=Exception("connection refused")
@@ -162,7 +160,10 @@ def test_on_start_defers_on_db_error():
 def test_on_database_created():
     ctx = _ctx()
     state_in = _state()
-    with patch(_FETCH_PATCH, return_value={}), ctx(ctx.on.start(), state_in) as mgr:
+    with (
+        patch("charm.DatabaseRequires.fetch_relation_data", return_value={}),
+        ctx(ctx.on.start(), state_in) as mgr,
+    ):
         mgr.charm._on_database_created(MagicMock())
         assert mgr.charm.unit.status == testing.ActiveStatus(
             "received database credentials of the first database"
@@ -174,7 +175,7 @@ def test_on_database_endpoints_changed_updates_config():
     ctx = _ctx()
     state_in = _state(peer_data={PROC_PID_KEY: "12345"})
     with (
-        patch(_FETCH_PATCH, return_value={}),
+        patch("charm.DatabaseRequires.fetch_relation_data", return_value={}),
         patch.object(
             ApplicationCharm,
             "_connection_string",
@@ -194,7 +195,7 @@ def test_on_database_endpoints_changed_no_proc_pid():
     ctx = _ctx()
     state_in = _state()
     with (
-        patch(_FETCH_PATCH, return_value={}),
+        patch("charm.DatabaseRequires.fetch_relation_data", return_value={}),
         patch.object(
             ApplicationCharm,
             "_connection_string",
