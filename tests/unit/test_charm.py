@@ -4,7 +4,55 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from src.charm import ApplicationCharm
+from ops import ActiveStatus, BlockedStatus
+
+from src.charm import BLOCKED_NO_INTEGRATION_MSG, ApplicationCharm
+
+
+def test_on_start_sets_blocked_when_no_relation_data():
+    """Unit stays blocked on start when no database credentials exist."""
+    empty_db = Mock()
+    empty_db.fetch_relation_data.return_value = {}
+
+    charm = SimpleNamespace(
+        database=empty_db,
+        second_database=Mock(fetch_relation_data=Mock(return_value={})),
+        database_clusters=Mock(fetch_relation_data=Mock(return_value={})),
+        aliased_database_clusters=Mock(fetch_relation_data=Mock(return_value={})),
+        unit=Mock(),
+        model=Mock(),
+        app_peer_data={},
+    )
+    charm.model.unit.is_leader.return_value = False
+
+    event = Mock()
+    ApplicationCharm._on_start(charm, event)
+
+    assert charm.unit.status == BlockedStatus(BLOCKED_NO_INTEGRATION_MSG)
+
+
+def test_on_start_sets_active_when_credentials_present():
+    """Unit transitions to active on start when database credentials are present."""
+    populated_db = Mock()
+    populated_db.fetch_relation_data.return_value = {
+        1: {"username": "test_user", "password": "test_pass"}
+    }
+
+    charm = SimpleNamespace(
+        database=populated_db,
+        second_database=Mock(fetch_relation_data=Mock(return_value={})),
+        database_clusters=Mock(fetch_relation_data=Mock(return_value={})),
+        aliased_database_clusters=Mock(fetch_relation_data=Mock(return_value={})),
+        unit=Mock(),
+        model=Mock(),
+        app_peer_data={},
+    )
+    charm.model.unit.is_leader.return_value = False
+
+    event = Mock()
+    ApplicationCharm._on_start(charm, event)
+
+    assert charm.unit.status == ActiveStatus("received database credentials of the first database")
 
 
 def test_connection_string_none_when_relation_data_is_empty():
