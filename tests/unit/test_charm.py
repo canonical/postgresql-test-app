@@ -25,7 +25,12 @@ def test_run_sql_action_fails_cleanly_without_relation_data():
     charm.connect_to_database = Mock()
 
     event = Mock()
-    event.params = {"relation-name": "database", "dbname": "db", "query": "SELECT 1", "readonly": False}
+    event.params = {
+        "relation-name": "database",
+        "dbname": "db",
+        "query": "SELECT 1",
+        "readonly": False,
+    }
 
     ApplicationCharm._on_run_sql_action(charm, event)
 
