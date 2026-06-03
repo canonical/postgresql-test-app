@@ -247,7 +247,12 @@ class ApplicationCharm(CharmBase):
 
     def _on_database_relation_changed(self, _) -> None:
         """Update continuous reads config when the set of related units changes."""
-        self._update_reads_config()
+        if self.app_peer_data.get(READ_PROC_PID_KEY):
+            self._update_reads_config()
+        elif self.app_peer_data.get(PROC_PID_KEY):
+            # Writes are running but reads never started (e.g. no per-unit
+            # ingress-address was available yet) — start them now.
+            self._start_continuous_reads()
 
     def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Event triggered when a database relation is left."""
@@ -558,6 +563,7 @@ class ApplicationCharm(CharmBase):
 
         endpoints = self._all_endpoints
         if not endpoints:
+            logger.warning("Cannot start continuous reads: no endpoints in relation data yet")
             return
 
         self._stop_continuous_reads()

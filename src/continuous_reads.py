@@ -15,6 +15,7 @@ Where:
     43585       MAX(number) from continuous_writes (empty when unreachable)
     +3          delta: records inserted since last read round
     []          gap indicator: empty = clean, [2] = 2 records lost
+                (holes between MIN and MAX, robust to truncation/offset resumes)
 """
 
 import contextlib
@@ -23,6 +24,7 @@ import os
 import signal
 import stat
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from time import sleep
 
@@ -86,9 +88,11 @@ def _read_config() -> tuple[str, list[str], dict[str, str]]:
 
 
 def _read_endpoint(connection_string_template: str, host: str, port: str) -> tuple[int, int]:
-    """Read MAX and COUNT from one endpoint.
+    """Read MIN, MAX and COUNT from one endpoint.
 
-    Returns (max_value, gaps) or (-1, -1) on error.
+    Returns (max_value, gaps) or (-1, -1) on error. Gaps are holes in the
+    sequence between MIN and MAX, so the count stays correct even when the
+    table was truncated or writes resumed from a non-1 offset.
     """
     connstr = f"{connection_string_template} host='{host}' port={port}"
     connection = None
@@ -96,7 +100,9 @@ def _read_endpoint(connection_string_template: str, host: str, port: str) -> tup
         connection = psycopg2.connect(connstr)
         connection.autocommit = True
         with connection.cursor() as cursor:
-            cursor.execute("SELECT MAX(number), COUNT(number) FROM continuous_writes;")
+            cursor.execute(
+                "SELECT MIN(number), MAX(number), COUNT(number) FROM continuous_writes;"
+            )
             result = cursor.fetchone()
     except Exception:
         return -1, -1
@@ -108,9 +114,8 @@ def _read_endpoint(connection_string_template: str, host: str, port: str) -> tup
     if not result or result[0] is None:
         return -1, -1
 
-    max_val = result[0]
-    count_val = result[1]
-    gaps = max_val - count_val
+    min_val, max_val, count_val = result
+    gaps = (max_val - min_val + 1) - count_val
     return max_val, gaps
 
 
@@ -119,6 +124,45 @@ def _format_unit(label: str, max_val: int, delta: int, gaps: int) -> str:
     max_str = str(max_val) if max_val >= 0 else ""
     gap_str = f"[{gaps}]" if gaps > 0 else "[]"
     return f"{label}={max_str}:+{delta} {gap_str}"
+
+
+def _run_round(
+    connection_string_template: str,
+    endpoints: list[str],
+    ip_to_unit: dict[str, str],
+    prev_max: dict[str, int],
+) -> str:
+    """Read all endpoints concurrently and return one formatted status line.
+
+    Concurrent reads cap the round duration at roughly one connect_timeout,
+    so a single unreachable endpoint cannot stall monitoring of the others.
+    """
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    ordered = sorted(endpoints, key=lambda ep: _endpoint_sort_key(ep, ip_to_unit))
+
+    with ThreadPoolExecutor(max_workers=len(ordered)) as pool:
+        results = list(
+            pool.map(
+                lambda ep: _read_endpoint(connection_string_template, *ep.rsplit(":", 1)),
+                ordered,
+            )
+        )
+
+    parts: list[str] = []
+    for endpoint, (max_val, gap_val) in zip(ordered, results, strict=True):
+        host = endpoint.rsplit(":", 1)[0]
+        label = _unit_short(ip_to_unit.get(host, host))
+
+        prev = prev_max.get(label, -1)
+        delta = max_val - prev if max_val >= 0 and prev >= 0 else 0
+        if max_val >= 0:
+            # Keep the last good value across outages so the delta bridges
+            # unreachable rounds instead of silently resetting to +0.
+            prev_max[label] = max_val
+
+        parts.append(_format_unit(label, max_val, delta, gap_val if max_val >= 0 else 0))
+
+    return f"{timestamp}: {' '.join(parts)}"
 
 
 def continuous_reads(pipe_path: str, read_interval: int) -> None:
@@ -136,24 +180,11 @@ def continuous_reads(pipe_path: str, read_interval: int) -> None:
             sleep(0.1)
             continue
 
-        timestamp = datetime.now().strftime("%H:%M:%S")
+        if not endpoints:
+            sleep(0.1)
+            continue
 
-        resolved = ip_to_unit
-        endpoints.sort(key=lambda ep: _endpoint_sort_key(ep, resolved))
-
-        parts: list[str] = []
-        for endpoint in endpoints:
-            host, port = endpoint.rsplit(":", 1)
-            max_val, gap_val = _read_endpoint(connection_string_template, host, port)
-            label = _unit_short(ip_to_unit.get(host, host))
-
-            prev = prev_max.get(label, -1)
-            delta = max_val - prev if max_val >= 0 and prev >= 0 else 0
-            prev_max[label] = max_val
-
-            parts.append(_format_unit(label, max_val, delta, gap_val if max_val >= 0 else 0))
-
-        line = f"{timestamp}: {' '.join(parts)}"
+        line = _run_round(connection_string_template, endpoints, ip_to_unit, prev_max)
         _write_to_pipe(pipe_path, line)
 
         if read_interval:
