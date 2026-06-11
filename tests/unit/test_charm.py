@@ -17,13 +17,27 @@ def _ctx():
     return testing.Context(ApplicationCharm, juju_version="4.0.0")
 
 
-def _state(*, leader: bool = False, peer_data: dict | None = None) -> testing.State:
+def _state(
+    *,
+    leader: bool = False,
+    peer_data: dict | None = None,
+    extra_relations: list | None = None,
+) -> testing.State:
     """Build a State with the peer relation and optional app peer data."""
     peer = testing.PeerRelation(
         endpoint="postgresql-test-peers",
         local_app_data=peer_data or {},
     )
-    return testing.State(leader=leader, relations=[peer])
+    return testing.State(leader=leader, relations=[peer, *(extra_relations or [])])
+
+
+def _database_relation(endpoint: str) -> testing.Relation:
+    """Build a database relation whose databag carries credentials."""
+    return testing.Relation(
+        endpoint=endpoint,
+        remote_app_name="pg",
+        remote_app_data={"username": "user", "password": "pass"},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -41,15 +55,9 @@ def test_on_start_no_relations():
 
 def test_on_start_with_database_credentials():
     ctx = _ctx()
-    state_in = _state(leader=False)
+    state_in = _state(leader=False, extra_relations=[_database_relation("database")])
 
-    def _fetch_side_effect(self):
-        if self.relation_name == "database":
-            return {"0": {"username": "user", "password": "pass"}}
-        return {}
-
-    with patch("charm.DatabaseRequires.fetch_relation_data", _fetch_side_effect):
-        state_out = ctx.run(ctx.on.start(), state_in)
+    state_out = ctx.run(ctx.on.start(), state_in)
     assert state_out.unit_status == testing.ActiveStatus(
         "received database credentials of the first database"
     )
@@ -57,15 +65,9 @@ def test_on_start_with_database_credentials():
 
 def test_on_start_with_second_database_credentials():
     ctx = _ctx()
-    state_in = _state(leader=False)
+    state_in = _state(leader=False, extra_relations=[_database_relation("second-database")])
 
-    def _fetch_side_effect(self):
-        if self.relation_name == "second-database":
-            return {"0": {"username": "user", "password": "pass"}}
-        return {}
-
-    with patch("charm.DatabaseRequires.fetch_relation_data", _fetch_side_effect):
-        state_out = ctx.run(ctx.on.start(), state_in)
+    state_out = ctx.run(ctx.on.start(), state_in)
     assert state_out.unit_status == testing.ActiveStatus(
         "received database credentials of the second database"
     )
@@ -73,15 +75,11 @@ def test_on_start_with_second_database_credentials():
 
 def test_on_start_with_cluster_credentials():
     ctx = _ctx()
-    state_in = _state(leader=False)
+    state_in = _state(
+        leader=False, extra_relations=[_database_relation("multiple-database-clusters")]
+    )
 
-    def _fetch_side_effect(self):
-        if self.relation_name == "multiple-database-clusters":
-            return {"0": {"username": "user", "password": "pass"}}
-        return {}
-
-    with patch("charm.DatabaseRequires.fetch_relation_data", _fetch_side_effect):
-        state_out = ctx.run(ctx.on.start(), state_in)
+    state_out = ctx.run(ctx.on.start(), state_in)
     assert state_out.unit_status == testing.ActiveStatus(
         "received database credentials for a database cluster"
     )
@@ -89,15 +87,11 @@ def test_on_start_with_cluster_credentials():
 
 def test_on_start_with_aliased_cluster_credentials():
     ctx = _ctx()
-    state_in = _state(leader=False)
+    state_in = _state(
+        leader=False, extra_relations=[_database_relation("aliased-multiple-database-clusters")]
+    )
 
-    def _fetch_side_effect(self):
-        if self.relation_name == "aliased-multiple-database-clusters":
-            return {"0": {"username": "user", "password": "pass"}}
-        return {}
-
-    with patch("charm.DatabaseRequires.fetch_relation_data", _fetch_side_effect):
-        state_out = ctx.run(ctx.on.start(), state_in)
+    state_out = ctx.run(ctx.on.start(), state_in)
     assert state_out.unit_status == testing.ActiveStatus(
         "received database credentials for an aliased database cluster"
     )
