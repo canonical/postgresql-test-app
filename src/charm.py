@@ -191,8 +191,9 @@ class ApplicationCharm(CharmBase):
             ),
         ]:
             if any(
-                data.get("username") and data.get("password")
-                for data in relation_data.fetch_relation_data().values()
+                relation_data.fetch_relation_field(relation.id, "username")
+                and relation_data.fetch_relation_field(relation.id, "password")
+                for relation in relation_data.relations
             ):
                 self.unit.status = ActiveStatus(msg)
                 break
