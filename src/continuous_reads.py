@@ -58,6 +58,8 @@ def _write_to_pipe(pipe_path: str, line: str) -> None:
     try:
         os.write(fd, f"{line}\n".encode())
     except OSError:
+        # The pipe buffer may be full (EAGAIN) or the reader may have
+        # detached (EPIPE); drop the line rather than block or crash.
         pass
     finally:
         os.close(fd)
