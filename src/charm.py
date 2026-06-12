@@ -180,6 +180,24 @@ class ApplicationCharm(CharmBase):
     def _on_start(self, event: StartEvent) -> None:
         """Sets initial Waiting status and checks if writes should be restarted."""
         self.unit.status = BlockedStatus(BLOCKED_NO_INTEGRATION_MSG)
+
+        for relation_data, msg in [
+            (self.database, "received database credentials of the first database"),
+            (self.second_database, "received database credentials of the second database"),
+            (self.database_clusters, "received database credentials for a database cluster"),
+            (
+                self.aliased_database_clusters,
+                "received database credentials for an aliased database cluster",
+            ),
+        ]:
+            if any(
+                relation_data.fetch_relation_field(relation.id, "username")
+                and relation_data.fetch_relation_field(relation.id, "password")
+                for relation in relation_data.relations
+            ):
+                self.unit.status = ActiveStatus(msg)
+                break
+
         if (
             self.model.unit.is_leader()
             and PROC_PID_KEY in self.app_peer_data
