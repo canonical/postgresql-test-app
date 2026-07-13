@@ -8,6 +8,7 @@ This charm is meant to be used only for testing
 of the libraries in this repository.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -42,6 +43,9 @@ PEER = "postgresql-test-peers"
 LAST_WRITTEN_FILE = "/tmp/last_written_value"  # noqa: S108
 CONFIG_FILE = "/tmp/continuous_writes_config"  # noqa: S108
 PROC_PID_KEY = "proc-pid"
+READ_PROC_PID_KEY = "read-proc-pid"
+READS_PIPE_PATH = "/tmp/continuous_reads.pipe"  # noqa: S108
+READS_CONFIG_FILE = "/tmp/continuous_reads_config"  # noqa: S108
 
 
 class ApplicationCharm(CharmBase):
@@ -75,6 +79,9 @@ class ApplicationCharm(CharmBase):
         self.framework.observe(self.database.on.database_created, self._on_database_created)
         self.framework.observe(
             self.database.on.endpoints_changed, self._on_database_endpoints_changed
+        )
+        self.framework.observe(
+            self.on["database"].relation_changed, self._on_database_relation_changed
         )
         self.framework.observe(self.on["database"].relation_broken, self._on_relation_broken)
         self.framework.observe(
@@ -172,7 +179,7 @@ class ApplicationCharm(CharmBase):
     def are_writes_running(self) -> bool:
         """Returns whether continuous writes script is running."""
         try:
-            os.kill(int(self.app_peer_data[PROC_PID_KEY]))
+            os.kill(int(self.app_peer_data[PROC_PID_KEY]), 0)
             return True
         except Exception:
             return False
@@ -224,15 +231,28 @@ class ApplicationCharm(CharmBase):
     def _on_database_endpoints_changed(self, event: DatabaseEndpointsChangedEvent) -> None:
         """Event triggered when the read/write endpoints of the database change."""
         logger.info(f"first database endpoints have been changed to: {event.endpoints}")
-        if self._connection_string is None:
+        if not self.app_peer_data.get(PROC_PID_KEY):
             return
 
-        if not self.app_peer_data.get(PROC_PID_KEY):
-            return None
+        if self._connection_string is None:
+            self._stop_continuous_writes()
+            return
 
         with open(CONFIG_FILE, "w") as fd:
             fd.write(self._connection_string)
             os.fsync(fd)
+        os.chmod(CONFIG_FILE, 0o600)
+
+        self._update_reads_config()
+
+    def _on_database_relation_changed(self, _) -> None:
+        """Update continuous reads config when the set of related units changes."""
+        if self.app_peer_data.get(READ_PROC_PID_KEY):
+            self._update_reads_config()
+        elif self.app_peer_data.get(PROC_PID_KEY):
+            # Writes are running but reads never started (e.g. no per-unit
+            # ingress-address was available yet) — start them now.
+            self._start_continuous_reads()
 
     def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Event triggered when a database relation is left."""
@@ -313,20 +333,53 @@ class ApplicationCharm(CharmBase):
         return (
             f"dbname='{database}' user='{username}'"
             f" host='{host}' password='{password}' port={port} connect_timeout=5"
-            # Keepalive settings to keep in case the primary goes away
-            " keepalives=1 keepalives_idle=30 keepalives_count=1 tcp_user_timeout=30"
+            " keepalives=1 keepalives_idle=10 keepalives_interval=5"
+            " keepalives_count=1 tcp_user_timeout=30"
         )
 
-    def _count_writes(self) -> int:
-        """Count the number of records in the continuous_writes table."""
-        with (
-            psycopg2.connect(self._connection_string) as connection,
-            connection.cursor() as cursor,
-        ):
-            cursor.execute("SELECT COUNT(number) FROM continuous_writes;")
-            count = cursor.fetchone()[0]
-        connection.close()
-        return count
+    @property
+    def _all_endpoints(self) -> list[str]:
+        """Returns endpoints for all related units using per-unit ingress addresses.
+
+        Uses per-unit relation data so that every unit is always queried,
+        even during switchover when a unit may temporarily drop from the
+        aggregated endpoints/read-only-endpoints fields.
+        """
+        relation = self.model.get_relation("database")
+        if not relation:
+            return []
+
+        # Extract port from the app-level endpoint strings (all units use the same port).
+        db_data = list(self.database.fetch_relation_data().values())
+        port = "5432"
+        if db_data:
+            data = db_data[0]
+            for field in ("endpoints", "read-only-endpoints"):
+                ep = data.get(field, "")
+                if ep and ":" in ep.split(",")[0]:
+                    port = ep.split(",")[0].rsplit(":", 1)[1]
+                    break
+
+        endpoints = []
+        for unit in relation.units:
+            ip = relation.data[unit].get("ingress-address")
+            if ip:
+                endpoints.append(f"{ip}:{port}")
+        return endpoints
+
+    @property
+    def _ip_to_unit_map(self) -> dict[str, str]:
+        """Build a mapping of IP address to unit name from per-unit relation data."""
+        relation = self.model.get_relation("database")
+        if not relation:
+            return {}
+
+        mapping = {}
+        for unit in relation.units:
+            ip = relation.data[unit].get("ingress-address")
+            if ip:
+                mapping[ip] = unit.name
+        return mapping
 
     def _on_clear_continuous_writes_action(self, event: ActionEvent) -> None:
         """Clears database writes."""
@@ -433,6 +486,7 @@ class ApplicationCharm(CharmBase):
         with open(CONFIG_FILE, "w") as fd:
             fd.write(self._connection_string)
             os.fsync(fd)
+        os.chmod(CONFIG_FILE, 0o600)
 
         # Run continuous writes in the background.
         popen = subprocess.Popen([  # noqa: S603
@@ -445,8 +499,12 @@ class ApplicationCharm(CharmBase):
         # Store the continuous writes process ID to stop the process later.
         self.app_peer_data[PROC_PID_KEY] = str(popen.pid)
 
+        self._start_continuous_reads()
+
     def _stop_continuous_writes(self) -> int | None:
         """Stops continuous writes to PostgreSQL and returns the last written value."""
+        self._stop_continuous_reads()
+
         if not self.app_peer_data.get(PROC_PID_KEY):
             return None
 
@@ -471,6 +529,87 @@ class ApplicationCharm(CharmBase):
         os.remove(LAST_WRITTEN_FILE)
         os.remove(CONFIG_FILE)
         return last_written_value
+
+    def _update_reads_config(self) -> None:
+        """Rewrite the continuous reads config file so the running process picks up changes."""
+        if not self.app_peer_data.get(READ_PROC_PID_KEY):
+            return
+
+        db_data = list(self.database.fetch_relation_data().values())
+        if not db_data:
+            return
+
+        data = db_data[0]
+        config = {
+            "connection_string_template": (
+                f"dbname='{data.get('database')}' user='{data.get('username')}'"
+                f" password='{data.get('password')}' connect_timeout=5"
+                " keepalives=1 keepalives_idle=10 keepalives_interval=5"
+                " keepalives_count=1 tcp_user_timeout=30"
+            ),
+            "endpoints": self._all_endpoints,
+            "ip_to_unit": self._ip_to_unit_map,
+        }
+
+        with open(READS_CONFIG_FILE, "w") as fd:
+            json.dump(config, fd)
+            os.fsync(fd)
+        os.chmod(READS_CONFIG_FILE, 0o600)
+
+    def _start_continuous_reads(self) -> None:
+        """Start continuous reads from all endpoints, logging to a named pipe."""
+        if self._connection_string is None:
+            return
+
+        endpoints = self._all_endpoints
+        if not endpoints:
+            logger.warning("Cannot start continuous reads: no endpoints in relation data yet")
+            return
+
+        self._stop_continuous_reads()
+
+        db_data = list(self.database.fetch_relation_data().values())
+        data = db_data[0] if db_data else {}
+        config = {
+            "connection_string_template": (
+                f"dbname='{data.get('database')}' user='{data.get('username')}'"
+                f" password='{data.get('password')}' connect_timeout=5"
+                " keepalives=1 keepalives_idle=10 keepalives_interval=5"
+                " keepalives_count=1 tcp_user_timeout=30"
+            ),
+            "endpoints": endpoints,
+            "ip_to_unit": self._ip_to_unit_map,
+        }
+
+        with open(READS_CONFIG_FILE, "w") as fd:
+            json.dump(config, fd)
+            os.fsync(fd)
+        os.chmod(READS_CONFIG_FILE, 0o600)
+
+        popen = subprocess.Popen([  # noqa: S603
+            str(pathlib.Path("venv/bin/python").absolute()),
+            "src/continuous_reads.py",
+            str(self.config["read_interval"]),
+            READS_PIPE_PATH,
+        ])
+
+        self.app_peer_data[READ_PROC_PID_KEY] = str(popen.pid)
+        logger.info(f"Started continuous reads, tail {READS_PIPE_PATH}")
+
+    def _stop_continuous_reads(self) -> None:
+        """Stop continuous reads."""
+        if not self.app_peer_data.get(READ_PROC_PID_KEY):
+            return
+
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(int(self.app_peer_data[READ_PROC_PID_KEY]), signal.SIGTERM)
+
+        del self.app_peer_data[READ_PROC_PID_KEY]
+
+        if os.path.exists(READS_CONFIG_FILE):
+            os.remove(READS_CONFIG_FILE)
+
+        logger.info("Stopped continuous reads")
 
     # Legacy event handlers
     def _on_database_relation_joined(self, event) -> None:
@@ -580,7 +719,12 @@ class ApplicationCharm(CharmBase):
         Returns:
             psycopg2 connection object using the provided data
         """
-        connstr = f"dbname='{database}' user='{user}' host='{host}' port='{port}' password='{password}' connect_timeout=1"
+        connstr = (
+            f"dbname='{database}' user='{user}' host='{host}' port='{port}'"
+            f" password='{password}' connect_timeout=1"
+            " keepalives=1 keepalives_idle=10 keepalives_interval=5"
+            " keepalives_count=1 tcp_user_timeout=30"
+        )
         if tls:
             connstr = f"{connstr} sslmode=require"
         logger.debug(f"connecting to database: \n{database}")
