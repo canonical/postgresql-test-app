@@ -109,7 +109,11 @@ class ApplicationCharm(CharmBase):
         # Multiple database clusters charm events (clusters/relations without alias).
         database_name = f"{self.app.name.replace('-', '_')}_multiple_database_clusters"
         self.database_clusters = DatabaseRequires(
-            self, "multiple-database-clusters", database_name, self.config["extra_user_roles"]
+            charm=self,
+            relation_name="multiple-database-clusters",
+            database_name=database_name,
+            extra_user_roles=self.config["extra_user_roles"],
+            external_node_connectivity=True,
         )
         self.framework.observe(
             self.database_clusters.on.database_created, self._on_cluster_database_created
@@ -127,11 +131,12 @@ class ApplicationCharm(CharmBase):
         database_name = f"{self.app.name.replace('-', '_')}_aliased_multiple_database_clusters"
         cluster_aliases = ["cluster1", "cluster2"]  # Aliases for the multiple clusters/relations.
         self.aliased_database_clusters = DatabaseRequires(
-            self,
-            "aliased-multiple-database-clusters",
-            database_name,
-            self.config["extra_user_roles"],
-            cluster_aliases,
+            charm=self,
+            relation_name="aliased-multiple-database-clusters",
+            database_name=database_name,
+            extra_user_roles=self.config["extra_user_roles"],
+            relations_aliases=cluster_aliases,
+            external_node_connectivity=True,
         )
         # Each database cluster will have its own events
         # with the name having the cluster/relation alias as the prefix.
