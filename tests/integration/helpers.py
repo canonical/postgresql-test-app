@@ -92,6 +92,18 @@ async def smoke_base(ops_test: OpsTest, charm: str, base: str) -> None:
     else:
         pg_channel = "16/edge"
         pg_base = "noble"
+    pgb_deploy_cmd = [
+        "deploy",
+        pgbouncer,
+        "--channel",
+        "1/edge/fix-server-reset-query",
+        "--series",
+        pgb_base,
+        "--trust",
+    ]
+    if pgb_units > 0:
+        pgb_deploy_cmd.extend(["-n", str(pgb_units)])
+
     await asyncio.gather(
         ops_test.model.deploy(
             postgresql,
@@ -100,13 +112,7 @@ async def smoke_base(ops_test: OpsTest, charm: str, base: str) -> None:
             series=pg_base,
             trust=True,
         ),
-        ops_test.model.deploy(
-            pgbouncer,
-            channel="1/edge",
-            num_units=pgb_units,
-            series=pgb_base,
-            trust=True,
-        ),
+        ops_test.juju(*pgb_deploy_cmd),
         ops_test.model.deploy(
             charm,
             application_name=TEST_APP_NAME,
