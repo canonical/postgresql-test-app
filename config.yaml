@@ -19,3 +19,9 @@ options:
       How many milliseconds to sleep between writes
       (app will try to write twice per second by default).
     type: int
+  read_interval:
+    description: |
+      How many milliseconds to sleep between continuous reads rounds.
+      Use `juju ssh <unit> tail -f /tmp/continuous_reads.pipe` to see reads.
+    default: 1000
+    type: int
