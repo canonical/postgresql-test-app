@@ -47,5 +47,4 @@ jobs:
           ticsAuthToken: ${{ secrets.TICSAUTHTOKEN }}  # zizmor: ignore[secrets-outside-env] Organization secret (does not support environments: https://github.com/orgs/community/discussions/15379)
           installTics: true
           calc: ALL
-          nocalc: UNITTESTCOVERAGE
     permissions: {}
