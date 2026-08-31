@@ -41,7 +41,7 @@ optional = true
 
 [tool.poetry.group.integration.dependencies]
 pytest = "^9.1.1"
-lightkube = "^0.22.0"
+lightkube = "^1.0.1"
 pytest-operator = "^0.43.2"
 # renovate caret doesn't work: https://github.com/renovatebot/renovate/issues/26940
 juju = "<=3.6.1.3"
