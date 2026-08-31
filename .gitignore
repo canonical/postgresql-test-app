@@ -7,6 +7,7 @@ __pycache__/
 *.py[cod]
 requirements.txt
 requirements-last-build.txt
+coverage.xml
 
 # PyCharm project folder.
 .idea/
