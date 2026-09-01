@@ -2,6 +2,7 @@
 [![Charmhub](https://charmhub.io/postgresql-test-app/badge.svg)](https://charmhub.io/postgresql-test-app)
 [![Release](https://github.com/canonical/postgresql-test-app/actions/workflows/release.yaml/badge.svg)](https://github.com/canonical/postgresql-test-app/actions/workflows/release.yaml)
 [![Tests](https://github.com/canonical/postgresql-test-app/actions/workflows/ci.yaml/badge.svg)](https://github.com/canonical/postgresql-test-app/actions/workflows/ci.yaml)
+[![Scan](https://github.com/canonical/postgresql-test-app/actions/workflows/tiobe_scan.yaml/badge.svg?branch=main)](https://github.com/canonical/pgbouncer-operator/actions/workflows/tiobe_scan.yaml)
 
 PostgreSQL test charm - is a simple application used exclusively for
 various tests of "Charmed PostgreSQL" charms (see the "References" section).
