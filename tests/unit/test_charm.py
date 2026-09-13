@@ -177,6 +177,7 @@ def test_on_database_endpoints_changed_updates_config():
         ),
         patch("builtins.open", mock_open()) as mock_file,
         patch("charm.os.fsync"),
+        patch("charm.os.chmod"),
         ctx(ctx.on.start(), state_in) as mgr,
     ):
         mgr.charm._on_database_endpoints_changed(MagicMock())
@@ -244,6 +245,7 @@ def test_start_continuous_writes_action_success():
         patch("charm.subprocess.Popen") as mock_popen,
         patch("builtins.open", mock_open()),
         patch("charm.os.fsync"),
+        patch("charm.os.chmod"),
         patch("charm.os.kill"),
         patch("charm.os.remove"),
     ):
