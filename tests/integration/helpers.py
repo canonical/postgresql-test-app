@@ -67,12 +67,10 @@ def smoke_base(juju: Juju, charm: str, base: str) -> None:
     if is_k8s:
         postgresql = "postgresql-k8s"
         pgbouncer = "pgbouncer-k8s"
-        pgb_units = 1
         pgb_base = "ubuntu@22.04"
     else:
         postgresql = "postgresql"
         pgbouncer = "pgbouncer"
-        pgb_units = 0
         pgb_base = base
     if base == "ubuntu@22.04":
         pg_channel = "14/edge"
@@ -82,7 +80,7 @@ def smoke_base(juju: Juju, charm: str, base: str) -> None:
         pg_base = "ubuntu@24.04"
 
     juju.deploy(postgresql, channel=pg_channel, num_units=1, base=pg_base, trust=True)
-    juju.deploy(pgbouncer, channel="1/edge", num_units=pgb_units, base=pgb_base, trust=True)
+    juju.deploy(pgbouncer, channel="1/edge", base=pgb_base, trust=True)
     juju.deploy(charm, app=TEST_APP_NAME, num_units=1, base=base)
     juju.integrate(postgresql, pgbouncer)
     juju.integrate(f"{TEST_APP_NAME}:database", pgbouncer)
