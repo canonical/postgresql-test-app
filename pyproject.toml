@@ -42,7 +42,7 @@ optional = true
 [tool.poetry.group.integration.dependencies]
 pytest = "^9.2.0"
 lightkube = "^1.0.2"
-jubilant-backports = "^1.4.0"
+jubilant = "^1.14.0"
 
 [build-system]
 requires = ["poetry-core>=2.5.0"]

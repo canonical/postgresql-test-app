@@ -53,7 +53,7 @@ backends:
       charmcraftcache pack -v
     restore-each: |
       cd "$SPREAD_PATH"
-      # Revert python-libjuju version override
+      # Revert jubilant-backports override
       git restore pyproject.toml poetry.lock
 
       # Use instead of `concierge restore` to save time between tests
@@ -127,9 +127,10 @@ prepare-each: |
   cd "$SPREAD_PATH"
   if [[ $SPREAD_VARIANT == *"juju29"* ]]
   then
-    # Each version of python-libjuju is only compatible with one major Juju version
-    # Override python-libjuju version pinned in poetry.lock
-    poetry add --lock --group integration juju@^2
+    # jubilant only supports Juju 3.0 and above. Replace it with jubilant-backports (a drop-in
+    # replacement that supports Juju 2.9) in pyproject.toml and poetry.lock.
+    poetry remove --lock --group integration jubilant
+    poetry add --lock --group integration jubilant-backports
   fi
   # `concierge prepare` needs to be run for each spread job in case Juju version changed
   concierge prepare --trace

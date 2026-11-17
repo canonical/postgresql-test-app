@@ -345,15 +345,15 @@ files = [
 ]
 
 [[package]]
-name = "jubilant-backports"
-version = "1.4.0"
-description = "Juju CLI wrapper for charm integration testing"
+name = "jubilant"
+version = "1.14.0"
+description = "Juju CLI wrapper, primarily for charm integration testing"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["integration"]
 files = [
-    {file = "jubilant_backports-1.4.0-py3-none-any.whl", hash = "sha256:b5c2d9aca29b39543bbe45b3205e97dd22b60fca9f8e0e66885b71201f8127d5"},
-    {file = "jubilant_backports-1.4.0.tar.gz", hash = "sha256:0961645e67a08e85b3371d6c386795d254527d0c107a355ca24bdbca3872b671"},
+    {file = "jubilant-1.14.0-py3-none-any.whl", hash = "sha256:2a631fb2363cdd26c0dea52659b5a8946e36f57fec922895521ab59bda6398e8"},
+    {file = "jubilant-1.14.0.tar.gz", hash = "sha256:d7fb046c716640ccd39c072dc1471de84cc54d78e331cc18d422ca7a5b72b378"},
 ]
 
 [package.dependencies]
@@ -915,4 +915,4 @@ h11 = ">=0.16.0,<1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "20fe5d384520190bb3780047e9ec847f67408b99373a88806f8bfd9d745f2f59"
+content-hash = "d898d5566ffc9d34d8fff9bd79916e98dfd9ab01905ebf23546867619474a00c"

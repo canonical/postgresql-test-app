@@ -2,151 +2,110 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-import asyncio
 import logging
 import subprocess
 import time
 
-from juju.relation import Relation
 from lightkube.core.client import Client
 from lightkube.resources.core_v1 import Pod
-from pytest_operator.plugin import OpsTest
+
+try:
+    from jubilant import Juju, all_active
+except ImportError:
+    from jubilant_backports import Juju, all_active
 
 logger = logging.getLogger(__name__)
 
 TEST_APP_NAME = "postgresql-test-app"
 
 
-async def run_command_on_unit(ops_test: OpsTest, unit_name: str, command: str) -> str:
+def run_command_on_unit(juju: Juju, unit_name: str, command: str) -> str:
     """Run a command on a specific unit.
 
     Args:
-        ops_test: The ops test framework instance
+        juju: The Jubilant Juju instance for the model under test
         unit_name: The name of the unit to run the command on
         command: The command to run
 
     Returns:
         the command output if it succeeds, otherwise raises an exception.
     """
-    complete_command = ["exec", "--unit", unit_name, "--", *command.split()]
-    return_code, stdout, _ = await ops_test.juju(*complete_command)
-    if return_code != 0:
-        logger.error(stdout)
-        raise Exception(
-            f"Expected command '{command}' to succeed instead it failed: {return_code}"
-        )
-    return stdout
+    return juju.exec(command, unit=unit_name).stdout
 
 
-async def get_machine_from_unit(ops_test: OpsTest, unit_name: str) -> str:
+def get_machine_from_unit(juju: Juju, unit_name: str) -> str:
     """Get the name of the machine from a specific unit.
 
     Args:
-        ops_test: The ops test framework instance
+        juju: The Jubilant Juju instance for the model under test
         unit_name: The name of the unit to get the machine
 
     Returns:
         The name of the machine.
     """
-    raw_hostname = await run_command_on_unit(ops_test, unit_name, "hostname")
+    raw_hostname = run_command_on_unit(juju, unit_name, "hostname")
     return raw_hostname.strip()
 
 
-async def restart_machine(ops_test: OpsTest, unit_name: str) -> None:
+def restart_machine(juju: Juju, unit_name: str) -> None:
     """Restart the machine where a unit run on.
 
     Args:
-        ops_test: The ops test framework instance
+        juju: The Jubilant Juju instance for the model under test
         unit_name: The name of the unit to restart the machine
     """
-    raw_hostname = await get_machine_from_unit(ops_test, unit_name)
+    raw_hostname = get_machine_from_unit(juju, unit_name)
     restart_machine_command = f"lxc restart {raw_hostname}"
     subprocess.check_call(restart_machine_command.split())
 
 
-async def integrate(ops_test: OpsTest, relation1: str, relation2: str) -> Relation:
-    if hasattr(ops_test.model, "integrate"):
-        return await ops_test.model.integrate(relation1, relation2)
-    else:
-        return await ops_test.model.relate(relation1, relation2)
-
-
-async def smoke_base(ops_test: OpsTest, charm: str, base: str) -> None:
+def smoke_base(juju: Juju, charm: str, base: str) -> None:
     """Verify that the charm works with latest Postgresql and Pgbouncer."""
     logger.info("Deploy charms")
-    is_k8s = ops_test.model.info.provider_type == "kubernetes"
+    is_k8s = juju.status().model.type == "caas"
 
     if is_k8s:
         postgresql = "postgresql-k8s"
         pgbouncer = "pgbouncer-k8s"
         pgb_units = 1
-        pgb_base = "jammy"
+        pgb_base = "ubuntu@22.04"
     else:
         postgresql = "postgresql"
         pgbouncer = "pgbouncer"
         pgb_units = 0
         pgb_base = base
-    if base == "jammy":
+    if base == "ubuntu@22.04":
         pg_channel = "14/edge"
-        pg_base = "jammy"
+        pg_base = "ubuntu@22.04"
     else:
         pg_channel = "16/edge"
-        pg_base = "noble"
-    await asyncio.gather(
-        ops_test.model.deploy(
-            postgresql,
-            channel=pg_channel,
-            num_units=1,
-            series=pg_base,
-            trust=True,
-        ),
-        ops_test.model.deploy(
-            pgbouncer,
-            channel="1/edge",
-            num_units=pgb_units,
-            series=pgb_base,
-            trust=True,
-        ),
-        ops_test.model.deploy(
-            charm,
-            application_name=TEST_APP_NAME,
-            num_units=1,
-            series=base,
-        ),
-    )
-    await integrate(ops_test, postgresql, pgbouncer)
-    await integrate(ops_test, f"{TEST_APP_NAME}:database", pgbouncer)
-    await ops_test.model.wait_for_idle(
-        apps=[postgresql, pgbouncer, TEST_APP_NAME], status="active", timeout=1000, idle_period=30
+        pg_base = "ubuntu@24.04"
+    # `juju deploy` runs in the background, so the deployments happen in parallel (like the
+    # previous `asyncio.gather` of `model.deploy()` calls)
+    juju.deploy(postgresql, channel=pg_channel, num_units=1, base=pg_base, trust=True)
+    juju.deploy(pgbouncer, channel="1/edge", num_units=pgb_units, base=pgb_base, trust=True)
+    juju.deploy(charm, app=TEST_APP_NAME, num_units=1, base=base)
+    juju.integrate(postgresql, pgbouncer)
+    juju.integrate(f"{TEST_APP_NAME}:database", pgbouncer)
+    juju.wait(
+        lambda status: all_active(status, postgresql, pgbouncer, TEST_APP_NAME),
+        timeout=1000,
     )
 
+    unit_name = f"{TEST_APP_NAME}/0"
+
     logger.info("Test continuous writes")
-    await (
-        await ops_test.model
-        .applications[TEST_APP_NAME]
-        .units[0]
-        .run_action("start-continuous-writes")
-    ).wait()
+    juju.run(unit_name, "start-continuous-writes")
 
     time.sleep(10)
 
     logger.info("Show continuous writes")
-    results = await (
-        await ops_test.model
-        .applications[TEST_APP_NAME]
-        .units[0]
-        .run_action("show-continuous-writes")
-    ).wait()
+    results = juju.run(unit_name, "show-continuous-writes")
     show_writes = int(results.results["writes"])
 
     time.sleep(10)
 
-    results = await (
-        await ops_test.model
-        .applications[TEST_APP_NAME]
-        .units[0]
-        .run_action("stop-continuous-writes")
-    ).wait()
+    results = juju.run(unit_name, "stop-continuous-writes")
 
     writes = int(results.results["writes"])
     assert writes > 0
@@ -158,75 +117,48 @@ async def smoke_base(ops_test: OpsTest, charm: str, base: str) -> None:
         "relation-name": "database",
         "readonly": False,
     }
-    results = await (
-        await ops_test.model.applications[TEST_APP_NAME].units[0].run_action("run-sql", **params)
-    ).wait()
+    results = juju.run(unit_name, "run-sql", params=params)
     count, maximum = results.results["results"].strip("[]").split(", ")
     count = int(count)
     maximum = int(maximum)
 
     assert writes == count == maximum
 
-    await (
-        await ops_test.model
-        .applications[TEST_APP_NAME]
-        .units[0]
-        .run_action("clear-continuous-writes")
-    ).wait()
+    juju.run(unit_name, "clear-continuous-writes")
 
 
-async def restart_base(ops_test: OpsTest) -> None:
+def restart_base(juju: Juju) -> None:
     """Verify that the charm works with latest Postgresql and Pgbouncer."""
-    is_k8s = ops_test.model.info.provider_type == "kubernetes"
+    is_k8s = juju.status().model.type == "caas"
+
+    unit_name = f"{TEST_APP_NAME}/0"
 
     logger.info("Start continuous writes")
-    await (
-        await ops_test.model
-        .applications[TEST_APP_NAME]
-        .units[0]
-        .run_action("start-continuous-writes")
-    ).wait()
+    juju.run(unit_name, "start-continuous-writes")
 
     time.sleep(10)
 
-    results = await (
-        await ops_test.model
-        .applications[TEST_APP_NAME]
-        .units[0]
-        .run_action("show-continuous-writes")
-    ).wait()
+    results = juju.run(unit_name, "show-continuous-writes")
     early_writes = int(results.results["writes"])
 
     if is_k8s:
         logger.info("Deleting the pod")
-        client = Client(namespace=ops_test.model.info.name)
+        client = Client(namespace=juju.status().model.name)
         client.delete(Pod, name=f"{TEST_APP_NAME}-0")
     else:
         logger.info("Restarting lxc")
-        await restart_machine(ops_test, ops_test.model.applications[TEST_APP_NAME].units[0].name)
+        restart_machine(juju, unit_name)
 
     logger.info("Wait for idle")
-    await ops_test.model.wait_for_idle(
-        apps=[TEST_APP_NAME], status="active", timeout=600, idle_period=30
-    )
+    juju.wait(lambda status: all_active(status, TEST_APP_NAME), timeout=600)
 
     logger.info("Check that writes are increasing")
-    results = await (
-        await ops_test.model
-        .applications[TEST_APP_NAME]
-        .units[0]
-        .run_action("show-continuous-writes")
-    ).wait()
+    results = juju.run(unit_name, "show-continuous-writes")
     show_writes = int(results.results["writes"])
 
     time.sleep(10)
 
-    results = await (
-        await ops_test.model
-        .applications[TEST_APP_NAME]
-        .units[0]
-        .run_action("stop-continuous-writes")
-    ).wait()
+    results = juju.run(unit_name, "stop-continuous-writes")
 
     writes = int(results.results["writes"])
     assert writes > 0

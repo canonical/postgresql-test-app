@@ -3,16 +3,19 @@
 # See LICENSE file for licensing details.
 
 
-from pytest_operator.plugin import OpsTest
+try:
+    from jubilant import Juju
+except ImportError:
+    from jubilant_backports import Juju
 
 from .helpers import restart_base, smoke_base
 
 
-async def test_smoke(ops_test: OpsTest, charm_noble) -> None:
+def test_smoke(juju: Juju, charm_noble) -> None:
     """Verify that the charm works with latest Postgresql and Pgbouncer."""
-    await smoke_base(ops_test, charm_noble, "noble")
+    smoke_base(juju, charm_noble, "ubuntu@24.04")
 
 
-async def test_restart(ops_test: OpsTest) -> None:
+def test_restart(juju: Juju) -> None:
     """Verify that the charm works with latest Postgresql and Pgbouncer."""
-    await restart_base(ops_test)
+    restart_base(juju)
