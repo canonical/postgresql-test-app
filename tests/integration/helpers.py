@@ -80,8 +80,7 @@ def smoke_base(juju: Juju, charm: str, base: str) -> None:
     else:
         pg_channel = "16/edge"
         pg_base = "ubuntu@24.04"
-    # `juju deploy` runs in the background, so the deployments happen in parallel (like the
-    # previous `asyncio.gather` of `model.deploy()` calls)
+
     juju.deploy(postgresql, channel=pg_channel, num_units=1, base=pg_base, trust=True)
     juju.deploy(pgbouncer, channel="1/edge", num_units=pgb_units, base=pgb_base, trust=True)
     juju.deploy(charm, app=TEST_APP_NAME, num_units=1, base=base)
