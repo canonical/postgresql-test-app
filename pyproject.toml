@@ -33,7 +33,7 @@ optional = true
 
 [tool.poetry.group.unit.dependencies]
 pytest = "^9.2.0"
-coverage = {version = "^7.17.3", extras = ["toml"]}
+coverage = {version = "^7.17.3", extras = ["toml"], markers = "python_version >= '3.11'"}
 ops = {version = "^3.9.0", extras = ["testing"]}
 
 [tool.poetry.group.integration]
